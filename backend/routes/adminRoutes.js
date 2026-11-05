@@ -124,12 +124,12 @@ router.patch('/manufacturers/:id/review', adminAuth, async (req, res) => {
       });
     }
 
-    if (manufacturer.verificationStatus !== 'Under Review') {
+    if (!['Under Review', 'Unverified'].includes(manufacturer.verificationStatus)) {
       return res.status(400).json({
         success: false,
-        message: 'Only manufacturers Under Review can be reviewed.',
-      });
-    }
+        message: 'Only unverified or under-review manufacturers can be reviewed.',
+    });
+}
 
     manufacturer.verificationStatus = decision;
     manufacturer.reviewedBy = req.admin.email;
