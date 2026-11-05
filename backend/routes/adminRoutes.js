@@ -78,7 +78,9 @@ router.post('/login', async (req, res) => {
 router.get('/manufacturers/pending', adminAuth, async (req, res) => {
   try {
     const manufacturers = await Manufacturer.find({
-      verificationStatus: 'Under Review',
+        verificationStatus: {
+            $in: ['Under Review', 'Unverified'],
+        },
     }).select('-verificationDocuments.publicId');
 
     res.status(200).json({
