@@ -1117,3 +1117,154 @@ button {
   border-radius: 10px;
   transition: width 0.3s ease;
 }
+
+
+/* =========================================
+   MOBILE NAVIGATION AND RESPONSIVE LAYOUT
+========================================= */
+
+/* Hidden on desktop */
+.mobile-menu-button {
+  display: none;
+}
+
+.mobile-menu-backdrop {
+  display: none;
+}
+
+/* Mobile screens */
+@media (max-width: 700px) {
+  .app-shell {
+    display: block;
+    width: 100%;
+    min-width: 320px;
+  }
+
+  .main-area {
+    width: 100%;
+    min-width: 0;
+  }
+
+  /* Mobile sidebar: hidden until opened */
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 255px;
+    height: 100vh;
+    min-height: 100vh;
+    padding: 24px 16px;
+    z-index: 1001;
+    overflow-y: auto;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+  }
+
+  .sidebar.mobile-open {
+    transform: translateX(0);
+  }
+
+  /* Restore sidebar labels and navigation text */
+  .brand {
+    justify-content: flex-start;
+    padding: 0 8px;
+    margin-bottom: 40px;
+  }
+
+  .brand > div:last-child,
+  .nav-label,
+  .profile > div:last-child {
+    display: block;
+  }
+
+  .nav-link {
+    display: flex;
+    justify-content: flex-start;
+    padding: 13px 14px;
+  }
+
+  .nav-link:not(.active) {
+    display: flex;
+  }
+
+  .profile {
+    justify-content: flex-start;
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  /* Dark overlay behind the open menu */
+  .mobile-menu-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: 1000;
+  }
+
+  /* Topbar */
+  .topbar {
+    width: 100%;
+    padding: 0 17px;
+    gap: 12px;
+  }
+
+  .topbar-heading {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    min-width: 0;
+  }
+
+  .mobile-menu-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+    border: 1px solid #334155;
+    border-radius: 9px;
+    background: #172033;
+    color: #e5e7eb;
+    font-size: 22px;
+    cursor: pointer;
+  }
+
+  .topbar-actions {
+    flex-shrink: 0;
+  }
+
+  /* Dashboard content */
+  .dashboard-content {
+    width: 100%;
+    padding: 22px 15px;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .content-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Very narrow phones */
+@media (max-width: 380px) {
+  .topbar {
+    padding: 0 10px;
+  }
+
+  .dashboard-content {
+    padding: 18px 10px;
+  }
+
+  .stats-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
