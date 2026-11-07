@@ -12,10 +12,12 @@ app.use(express.json());
 const projectRoutes = require('./routes/projectRoutes');
 const manufacturerRoutes = require('./routes/manufacturerRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const rfqRoutes = require('./routes/rfqRoutes');
 
 app.use('/api/projects', projectRoutes);
 app.use('/api/manufacturers', manufacturerRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/rfqs', rfqRoutes);
 
 app.get('/', (req, res) => {
   res.json({
