@@ -1,4 +1,3 @@
-
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ||
   (process.env.NODE_ENV === "production"
@@ -8,7 +7,8 @@ const API_URL =
 export async function apiRequest(endpoint, options = {}) {
   const { headers = {}, ...config } = options;
 
-  const isFormData = config.body instanceof FormData;
+  const isFormData =
+    typeof FormData !== "undefined" && config.body instanceof FormData;
 
   const response = await fetch(`${API_URL}${endpoint}`, {
     ...config,
@@ -16,6 +16,7 @@ export async function apiRequest(endpoint, options = {}) {
       ...(isFormData ? {} : { "Content-Type": "application/json" }),
       ...headers,
     },
+    cache: "no-store",
   });
 
   const data = await response.json().catch(() => ({}));
@@ -48,10 +49,10 @@ export const getCadDownloadLink = (id) =>
 
 // Manufacturers
 export const getManufacturers = () =>
-  apiRequest("/api/manufacturers");
+  apiRequest("/api/manufacturers/");
 
 export const registerManufacturer = (manufacturer) =>
-  apiRequest("/api/manufacturers", {
+  apiRequest("/api/manufacturers/", {
     method: "POST",
     body: JSON.stringify(manufacturer),
   });
@@ -90,8 +91,9 @@ export const reviewManufacturer = (
     }),
   });
 
-  // RFQ management
-export const getRFQs = () => apiRequest("/api/rfqs");
+// RFQ management
+export const getRFQs = () =>
+  apiRequest("/api/rfqs");
 
 export const createRFQ = (rfqData) =>
   apiRequest("/api/rfqs", {
