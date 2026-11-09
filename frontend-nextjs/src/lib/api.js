@@ -1,7 +1,9 @@
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ||
-  "http://localhost:5000";
+  (process.env.NODE_ENV === "production"
+    ? "https://global-manufacturer-matchmaker.onrender.com"
+    : "http://localhost:5000");
 
 export async function apiRequest(endpoint, options = {}) {
   const { headers = {}, ...config } = options;
