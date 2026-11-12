@@ -75,20 +75,37 @@ export default function Home() {
         setLoading(true);
         setError("");
 
-        const [projectsResult, manufacturersResult, rfqResult] =
-          await Promise.all([
-            getProjects(),
-            getManufacturers(),
-            getRFQs(),
-          ]);
 
-        const projectRecords = projectsResult.projects || [];
-        const manufacturerRecords =
-          manufacturersResult.manufacturers || [];
+  const [projectsResult, manufacturersResult] = await Promise.all([
+    getProjects(),
+    getManufacturers(),
+  ]);
 
-        setProjects(projectRecords);
-        setManufacturers(manufacturerRecords);
-        setRfqs(rfqResult.rfqs || []);
+  const projectRecords = projectsResult.projects || [];
+  const manufacturerRecords =
+    manufacturersResult.manufacturers || [];
+
+  setProjects(projectRecords);
+  setManufacturers(manufacturerRecords);
+
+  // Load RFQs only when an administrator is logged in.
+  setRfqs([]);
+
+  const token = localStorage.getItem("adminToken");
+
+  if (token) {
+    try {
+      const rfqResult = await getRFQs(token);
+      setRfqs(rfqResult.rfqs || []);
+    } catch (rfqError) {
+      console.error("Unable to load administrator RFQs:", rfqError);
+
+      setRfqs([]);
+
+      localStorage.removeItem("adminToken");
+    }
+  }
+
 
         if (projectRecords.length > 0) {
           try {
@@ -524,7 +541,7 @@ export default function Home() {
           </section>
 
           <section className="bottom-grid">
-            
+
             <article className="panel activity-panel">
               <div className="panel-heading">
                 <div>

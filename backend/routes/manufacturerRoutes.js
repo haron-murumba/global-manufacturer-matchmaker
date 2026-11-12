@@ -1,15 +1,154 @@
 
+
 const express = require('express');
 const router = express.Router();
 
 const Manufacturer = require('../models/Manufacturer');
 const Project = require('../models/Project');
+
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const {
   findManufacturerMatches,
 } = require('../services/manufacturerMatching');
 
+// POST: Manufacturer login
+router.post('/login', async (req, res) => {
+  try {
+    const { contactEmail, password } = req.body;
+
+    if (!contactEmail || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email and password are required.',
+      });
+    }
+
+    const manufacturer = await Manufacturer.findOne({
+      contactEmail: contactEmail.trim().toLowerCase(),
+      verificationStatus: 'Verified',
+      passwordHash: { $exists: true, $ne: null },
+    }).select('+passwordHash');
+
+    if (!manufacturer || !manufacturer.passwordHash) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials or supplier account not yet activated.',
+      });
+    }
+
+    const passwordMatches = await bcrypt.compare(
+      password,
+      manufacturer.passwordHash
+    );
+
+    if (!passwordMatches) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials.',
+      });
+    }
+
+    if (manufacturer.verificationStatus !== 'Verified') {
+      return res.status(403).json({
+        success: false,
+        message: 'Your manufacturer account must be verified before accessing RFQs.',
+      });
+    }
+
+    const token = jwt.sign(
+      {
+        manufacturerId: manufacturer._id,
+        role: 'manufacturer',
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Manufacturer login successful.',
+      token,
+      manufacturer: {
+        id: manufacturer._id,
+        companyName: manufacturer.companyName,
+        contactEmail: manufacturer.contactEmail,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Manufacturer login failed.',
+    });
+  }
+});
+
+// POST: Activate manufacturer account
+router.post('/activate', async (req, res) => {
+  try {
+    const { contactEmail, activationToken, password } = req.body;
+
+    if (!contactEmail || !activationToken || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email, activation token and password are required.',
+      });
+    }
+
+    if (typeof password !== 'string' || password.length < 12) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must contain at least 12 characters.',
+      });
+    }
+
+    const tokenHash = crypto
+      .createHash('sha256')
+      .update(activationToken)
+      .digest('hex');
+
+    const manufacturer = await Manufacturer.findOne({
+      contactEmail: contactEmail.trim().toLowerCase(),
+      verificationStatus: 'Verified',
+      activationTokenHash: tokenHash,
+      activationExpiresAt: { $gt: new Date() },
+    }).select('+activationTokenHash +activationExpiresAt +passwordHash');
+
+    if (!manufacturer) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired activation details.',
+      });
+    }
+
+    if (manufacturer.passwordHash) {
+      return res.status(400).json({
+        success: false,
+        message: 'Account is already activated.',
+      });
+    }
+
+    manufacturer.passwordHash = await bcrypt.hash(password, 12);
+    manufacturer.activationTokenHash = undefined;
+    manufacturer.activationExpiresAt = undefined;
+
+    await manufacturer.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Manufacturer account activated. You can now log in.',
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Account activation failed.',
+    });
+  }
+});
+
 // GET: View verified manufacturers (public access)
-router.get('/', async (req, res) => {
+router.get("/", async (req, res) => {
   try {
     const manufacturers = await Manufacturer.find({
       verificationStatus: 'Verified',
@@ -111,7 +250,7 @@ router.post('/', async (req, res) => {
       country,
       city,
       website,
-      contactEmail,
+      contactEmail: contactEmail.trim().toLowerCase(),
       capabilities,
       manufacturingProcesses,
       materials,

@@ -70,6 +70,21 @@ const manufacturerSchema = new mongoose.Schema(
       trim: true,
     },
 
+    passwordHash: {
+      type: String,
+      select: false,
+    },
+
+    activationTokenHash: {
+      type: String,
+      select: false,
+    },
+
+    activationExpiresAt: {
+      type: Date,
+      select: false,
+    },
+
     capabilities: [{ type: String }],
 
     manufacturingProcesses: [{ type: String }],

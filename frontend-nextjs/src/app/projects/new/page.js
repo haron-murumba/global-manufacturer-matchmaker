@@ -45,8 +45,14 @@ export default function CreateProjectPage() {
     data.append("cadFile", file);
 
     try {
+      const token = localStorage.getItem("adminToken");
+
+      if (!token) {
+        throw new Error("Please log in as an administrator before creating a project.");
+      }
+
       setLoading(true);
-      await createProject(data);
+      await createProject(data, token);
       router.push("/projects");
       router.refresh();
     } catch (err) {

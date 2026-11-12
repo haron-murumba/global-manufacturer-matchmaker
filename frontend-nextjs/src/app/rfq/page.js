@@ -9,7 +9,7 @@ import {
   getManufacturers,
   getRFQs,
   createRFQ,
-  updateQuotation,
+  awardRFQ,
 } from "@/lib/api";
 
 const emptyForm = {
@@ -39,8 +39,6 @@ function RFQContent() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  const [quotationForm, setQuotationForm] = useState({});
-  const [activeQuotation, setActiveQuotation] = useState(null);
 
     useEffect(() => {
     if (!selectedRfqId || loading) return;
@@ -54,15 +52,23 @@ function RFQContent() {
     return () => clearTimeout(timer);
   }, [selectedRfqId, loading, rfqs]);
 
+
   async function loadData() {
     try {
       setLoading(true);
       setError("");
 
+      const token = localStorage.getItem("adminToken");
+
+      if (!token) {
+        setError("Administrator login required. Please sign in through the Admin Dashboard.");
+        return;
+      }
+
       const [projectData, manufacturerData, rfqData] = await Promise.all([
         getProjects(),
         getManufacturers(),
-        getRFQs(),
+        getRFQs(token),
       ]);
 
       setProjects(projectData.projects || []);
@@ -75,32 +81,34 @@ function RFQContent() {
     }
   }
 
-  useEffect(() => {
-    loadData();
-  }, []);
 
-  function handleProjectChange(event) {
-    const project = projects.find(
-      (item) => item._id === event.target.value
-    );
+    useEffect(() => {
+      loadData();
+    }, []);
 
-    setForm((current) => ({
-      ...current,
-      projectId: event.target.value,
-      title: project ? `${project.productName} - Supplier RFQ` : "",
-      quantity: project ? String(project.quantity || "") : "",
-      material: project?.material || "",
-      process: project?.process || "",
-    }));
+    function handleProjectChange(event) {
+      const project = projects.find(
+        (item) => item._id === event.target.value
+      );
+
+      setForm((current) => ({
+        ...current,
+        projectId: event.target.value,
+        title: project ? `${project.productName} - Supplier RFQ` : "",
+        quantity: project ? String(project.quantity || "") : "",
+        material: project?.material || "",
+        process: project?.process || "",
+      }));
+    }
+
+    function toggleManufacturer(id) {
+      setSelectedManufacturers((current) =>
+        current.includes(id)
+          ? current.filter((item) => item !== id)
+          : [...current, id]
+      );
   }
 
-  function toggleManufacturer(id) {
-    setSelectedManufacturers((current) =>
-      current.includes(id)
-        ? current.filter((item) => item !== id)
-        : [...current, id]
-    );
-  }
 
   async function handleCreateRFQ(event) {
     event.preventDefault();
@@ -110,14 +118,24 @@ function RFQContent() {
       setError("");
       setMessage("");
 
-      await createRFQ({
-        ...form,
-        quantity: Number(form.quantity),
-        quotationDeadline: form.quotationDeadline
-          ? new Date(form.quotationDeadline).toISOString()
-          : undefined,
-        manufacturerIds: selectedManufacturers,
-      });
+      const token = localStorage.getItem("adminToken");
+
+      if (!token) {
+        setError("Administrator login required. Please sign in first.");
+        return;
+      }
+
+      await createRFQ(
+        {
+          ...form,
+          quantity: Number(form.quantity),
+          quotationDeadline: form.quotationDeadline
+            ? new Date(form.quotationDeadline).toISOString()
+            : undefined,
+          manufacturerIds: selectedManufacturers,
+        },
+        token
+      );
 
       setMessage("RFQ created and assigned to selected manufacturers.");
       setForm(emptyForm);
@@ -130,62 +148,35 @@ function RFQContent() {
     }
   }
 
-  function changeQuotationField(rfqId, manufacturerId, field, value) {
-    const key = `${rfqId}-${manufacturerId}`;
+  async function handleAwardRFQ(rfqId, manufacturerId) {
+  const token = localStorage.getItem("adminToken");
 
-    setQuotationForm((current) => ({
-      ...current,
-      [key]: {
-        ...(current[key] || {}),
-        [field]: value,
-      },
-    }));
+  if (!token) {
+    setError("Administrator login is required to award an RFQ.");
+    return;
   }
 
-  async function submitQuotation(rfqId, manufacturerId) {
-    const key = `${rfqId}-${manufacturerId}`;
-    const quotation = quotationForm[key] || {};
+  const confirmed = window.confirm(
+    "Are you sure you want to award this RFQ to this manufacturer?"
+  );
 
-    try {
-      setSaving(true);
-      setError("");
-      setMessage("");
+  if (!confirmed) return;
 
-      await updateQuotation(rfqId, manufacturerId, {
-        status: "Submitted",
-        unitPrice: quotation.unitPrice,
-        totalPrice: quotation.totalPrice,
-        currency: quotation.currency || "USD",
-        leadTime: quotation.leadTime,
-        paymentTerms: quotation.paymentTerms,
-        notes: quotation.notes,
-      });
+  try {
+    setSaving(true);
+    setError("");
+    setMessage("");
 
-      setMessage("Supplier quotation recorded successfully.");
-      setActiveQuotation(null);
-      await loadData();
-    } catch (err) {
-      setError(err.message || "Could not save quotation.");
-    } finally {
-      setSaving(false);
-    }
+    await awardRFQ(rfqId, manufacturerId, token);
+
+    setMessage("RFQ successfully awarded to the selected manufacturer.");
+    await loadData();
+  } catch (err) {
+    setError(err.message || "Could not award this RFQ.");
+  } finally {
+    setSaving(false);
   }
-
-  async function declineQuotation(rfqId, manufacturerId) {
-    try {
-      setSaving(true);
-      setError("");
-      await updateQuotation(rfqId, manufacturerId, {
-        status: "Declined",
-      });
-      setMessage("Supplier response marked as declined.");
-      await loadData();
-    } catch (err) {
-      setError(err.message || "Could not update supplier response.");
-    } finally {
-      setSaving(false);
-    }
-  }
+}
 
   const totalResponses = rfqs.reduce(
     (sum, rfq) => sum + rfq.quotations.filter(
@@ -438,114 +429,76 @@ function RFQContent() {
 
                 <h4>Supplier Quotations</h4>
 
-                {rfq.quotations.map((quotation, index) => {
+                {rfq.quotations.map((quotation) => {
                   const manufacturer = quotation.manufacturer;
+
                   if (!manufacturer) return null;
 
-                  const key = `${rfq._id}-${manufacturer._id}`;
-                  const isOpen = activeQuotation === key;
+                  const isSelected =
+                    rfq.selectedManufacturer?._id === manufacturer._id ||
+                    rfq.selectedManufacturer === manufacturer._id;
 
                   return (
                     <div className="quotation-row" key={manufacturer._id}>
                       <div className="quotation-info">
                         <strong>{manufacturer.companyName}</strong>
+
                         <small>
                           {manufacturer.city}, {manufacturer.country}
                         </small>
+
                         <span className={`response-status ${quotation.status.toLowerCase()}`}>
                           {quotation.status}
                         </span>
+
+                        {isSelected && (
+                          <span className="recommendation">
+                            Selected Supplier
+                          </span>
+                        )}
                       </div>
 
-                      {quotation.status === "Submitted" ? (
+                      {quotation.status === "Submitted" && (
                         <div className="quotation-details">
                           <strong>
                             {quotation.currency || "USD"}{" "}
                             {Number(quotation.unitPrice).toLocaleString()} / unit
                           </strong>
-                          {quotation.totalPrice !== undefined && (
-                            <small>
-                              Total: {quotation.currency || "USD"}{" "}
-                              {Number(quotation.totalPrice).toLocaleString()}
-                            </small>
-                          )}
-                          <small>Lead time: {quotation.leadTime || "Not specified"}</small>
-                          <small>Payment: {quotation.paymentTerms || "Not specified"}</small>
+
+                          <small>
+                            Total: {quotation.currency || "USD"}{" "}
+                            {Number(
+                              quotation.totalPrice ??
+                              quotation.unitPrice * rfq.quantity
+                            ).toLocaleString()}
+                          </small>
+
+                          <small>
+                            Lead time: {quotation.leadTime || "Not specified"}
+                          </small>
+
+                          <small>
+                            Payment: {quotation.paymentTerms || "Not specified"}
+                          </small>
+
                           {quotation.notes && <small>Notes: {quotation.notes}</small>}
-                        </div>
-                      ) : quotation.status === "Pending" ? (
-                        <div className="quotation-actions">
-                          <button
-                            className="secondary-button"
-                            onClick={() =>
-                              setActiveQuotation(isOpen ? null : key)
-                            }
-                          >
-                            {isOpen ? "Close" : "Record Response"}
-                          </button>
-                          <button
-                            className="decline-button"
-                            disabled={saving}
-                            onClick={() =>
-                              declineQuotation(rfq._id, manufacturer._id)
-                            }
-                          >
-                            Declined
-                          </button>
-                        </div>
-                      ) : null}
 
-                      {isOpen && (
-                        <div className="quotation-form">
-                          <h4>Record Supplier Quotation</h4>
-
-                          <div className="form-grid">
-                            {[
-                              ["unitPrice", "Unit Price", "number"],
-                              ["totalPrice", "Total Price", "number"],
-                              ["currency", "Currency", "text"],
-                              ["leadTime", "Lead Time", "text"],
-                              ["paymentTerms", "Payment Terms", "text"],
-                              ["notes", "Supplier Notes", "text"],
-                            ].map(([field, label, type]) => (
-                              <label key={field}>
-                                {label}
-                                <input
-                                  type={type}
-                                  min={type === "number" ? "0" : undefined}
-                                  value={
-                                    quotationForm[key]?.[field] ??
-                                    (field === "currency" ? "USD" : "")
-                                  }
-                                  onChange={(e) =>
-                                    changeQuotationField(
-                                      rfq._id,
-                                      manufacturer._id,
-                                      field,
-                                      e.target.value
-                                    )
-                                  }
-                                  required={field === "unitPrice"}
-                                />
-                              </label>
-                            ))}
-                          </div>
-
-                          <button
-                            className="primary-button"
-                            disabled={saving}
-                            onClick={() =>
-                              submitQuotation(rfq._id, manufacturer._id)
-                            }
-                          >
-                            {saving ? "Saving..." : "Save Quotation"}
-                          </button>
+                          {!rfq.selectedManufacturer && rfq.status !== "Cancelled" && (
+                            <button
+                              className="primary-button"
+                              disabled={saving}
+                              onClick={() =>
+                                handleAwardRFQ(rfq._id, manufacturer._id)
+                              }
+                            >
+                              Select Supplier
+                            </button>
+                          )}
                         </div>
                       )}
                     </div>
                   );
                 })}
-
                 {(() => {
             const submitted = rfq.quotations
               .filter((item) => item.status === "Submitted")
@@ -597,7 +550,7 @@ function RFQContent() {
                                     Lowest total price
                                   </small>
                                 ) : null}
-                        
+
                             </span>
 
                             <span>

@@ -11,10 +11,18 @@ export default function ResponseTrackingPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+
   useEffect(() => {
     async function loadRFQs() {
       try {
-        const result = await getRFQs();
+        const token = localStorage.getItem("adminToken");
+
+        if (!token) {
+          setError("Administrator login required. Please sign in through the Admin Dashboard.");
+          return;
+        }
+
+        const result = await getRFQs(token);
         setRfqs(result.rfqs || []);
       } catch (err) {
         setError(err.message || "Unable to load RFQ responses.");
@@ -25,6 +33,7 @@ export default function ResponseTrackingPage() {
 
     loadRFQs();
   }, []);
+
 
   const total = rfqs.length;
 
