@@ -96,7 +96,7 @@ export default function ManufacturersPage() {
   }
 
   return (
-    <main style={{ padding: "30px", maxWidth: "1200px", margin: "auto" }}>
+    <main style={{ padding: "30px 3%", width: "100%", minHeight: "100vh" }}>
       <Link href="/" style={{ color: "#70a8ff", textDecoration: "none" }}>
         ← Back to Dashboard
       </Link>
@@ -260,36 +260,53 @@ export default function ManufacturersPage() {
           outline: none;
         }
 
+        .manufacturer-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
         .manufacturer-card {
           display: flex;
+          flex-direction: column;
           justify-content: space-between;
-          align-items: flex-start;
-          gap: 15px;
-          padding: 18px 0;
-          border-bottom: 1px solid #243249;
+          gap: 14px;
+          padding: 20px;
+          min-width: 0;
+          background: #101b2e;
+          border: 1px solid #243249;
+          border-radius: 10px;
         }
 
         .manufacturer-card h3 {
-          margin: 0 0 8px;
-          font-size: 14px;
+          margin: 0 0 10px;
+          font-size: 15px;
         }
 
         .manufacturer-card p {
           color: #91a0b7;
           font-size: 12px;
-          margin: 6px 0;
+          line-height: 1.6;
+          margin: 7px 0;
         }
 
-        @media (max-width: 650px) {
-          .manufacturer-form-grid {
-            grid-template-columns: 1fr;
-          }
-
-          .manufacturer-card {
-            flex-direction: column;
+        @media (max-width: 1000px) {
+          .manufacturer-list {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
           }
         }
-      `}</style>
-    </main>
-  );
-}
+
+          @media (max-width: 650px) {
+            .manufacturer-form-grid,
+            .manufacturer-list {
+              grid-template-columns: 1fr;
+            }
+          }
+                    .manufacturer-card {
+                      flex-direction: column;
+                    }
+                  }
+                `}</style>
+              </main>
+            );
+          }
