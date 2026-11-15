@@ -1,6 +1,7 @@
 
 // Manufacturer Matching Service
-// Compares projects with manufacturers using normalized terminology.
+// Only manufacturers that support BOTH the required process
+// and material are eligible for a match.
 
 function normalize(value) {
   return String(value || '')
@@ -13,7 +14,6 @@ function normalize(value) {
     .trim();
 }
 
-// Recognized equivalent manufacturing terms
 const terminology = {
   plastic: ['plastic', 'plastics'],
   'injection molding': [
@@ -22,7 +22,6 @@ const terminology = {
   ],
 };
 
-// Convert recognized equivalent terms to a shared value
 function canonicalize(value) {
   const normalized = normalize(value);
 
@@ -30,6 +29,24 @@ function canonicalize(value) {
     if (alternatives.map(normalize).includes(normalized)) {
       return canonical;
     }
+  }
+
+  return normalized;
+}
+
+// Normalize specific stainless-steel grades to their material family.
+// This does not treat ordinary steel as stainless steel.
+function canonicalizeMaterial(value) {
+  const normalized = canonicalize(value);
+
+  // Treat PP and polypropylene, including food-grade PP, as equivalent.
+  if (/\b(pp|polypropylene)\b/.test(normalized)) {
+    return 'polypropylene';
+  }
+
+  // Normalize stainless-steel grades without accepting ordinary steel.
+  if (/\b(stainless steel|stainless)\b/.test(normalized)) {
+    return 'stainless steel';
   }
 
   return normalized;
@@ -47,35 +64,23 @@ function matchesArray(projectValue, manufacturerValues = []) {
   );
 }
 
-// Controlled material compatibility
 function materialsCompatible(projectMaterial, manufacturerMaterials = []) {
-  const project = canonicalize(projectMaterial);
+  const project = canonicalizeMaterial(projectMaterial);
 
   if (!project || !Array.isArray(manufacturerMaterials)) {
     return false;
   }
 
   return manufacturerMaterials.some((material) => {
-    const manufacturerMaterial = canonicalize(material);
+    const manufacturerMaterial = canonicalizeMaterial(material);
 
-    if (!manufacturerMaterial) return false;
-
-    if (manufacturerMaterial === project) return true;
-
-    // Related materials are not automatically treated as equivalent.
-    const materialFamilies = {
-      plastic: ['plastics', 'polymers', 'abs plastic'],
-      steel: ['stainless steel', 'carbon steel'],
-    };
-
-    const related = materialFamilies[project] || [];
-
-    return related.includes(manufacturerMaterial);
+    return Boolean(
+      manufacturerMaterial &&
+      manufacturerMaterial === project
+    );
   });
 }
 
-// Controlled product-category matching.
-// Only recognized category terms and aliases are treated as matches.
 function productCapabilityMatches(project, manufacturer) {
   const categoryGroups = {
     'smart devices': [
@@ -121,7 +126,16 @@ function productCapabilityMatches(project, manufacturer) {
     ],
   };
 
-  const projectCategory = normalize(project.productCategory);
+  const projectCategories = (
+    Array.isArray(project.productCategories) &&
+    project.productCategories.length
+      ? project.productCategories
+      : project.productCategory
+        ? [project.productCategory]
+        : []
+  )
+    .map(normalize)
+    .filter(Boolean);
 
   const manufacturerTerms = [
     ...(manufacturer.productCategories || []),
@@ -130,36 +144,39 @@ function productCapabilityMatches(project, manufacturer) {
     .map(normalize)
     .filter(Boolean);
 
-  // Use the selected category when one is available.
-  if (projectCategory && projectCategory !== 'other') {
-    const acceptedTerms = categoryGroups[projectCategory] || [
-      projectCategory,
-    ];
+  const recognizedCategories = projectCategories.filter(
+    (category) => category !== 'other'
+  );
 
-    return manufacturerTerms.some((term) =>
-      acceptedTerms.some(
-        (accepted) =>
-          term === normalize(accepted) ||
-          term.includes(normalize(accepted))
-      )
-    );
+  if (recognizedCategories.length) {
+    return recognizedCategories.some((projectCategory) => {
+      const acceptedTerms = categoryGroups[projectCategory] || [
+        projectCategory,
+      ];
+
+      return manufacturerTerms.some((term) =>
+        acceptedTerms.some(
+          (accepted) =>
+            term === normalize(accepted) ||
+            term.includes(normalize(accepted))
+        )
+      );
+    });
   }
 
-  // Backward compatibility for older projects without a category.
   const productName = normalize(project.productName);
 
-    return Boolean(
-      productName &&
-        manufacturerTerms.some(
-          (term) =>
-            productName.includes(term) ||
-            term.includes(productName)
-        )
-    );
-  }
+  return Boolean(
+    productName &&
+    manufacturerTerms.some(
+      (term) =>
+        productName.includes(term) ||
+        term.includes(productName)
+    )
+  );
+}
 
 function calculateManufacturerMatch(project, manufacturer) {
-  let score = 0;
   const reasons = [];
   const missing = [];
 
@@ -171,43 +188,64 @@ function calculateManufacturerMatch(project, manufacturer) {
     verificationStatus: 0,
   };
 
-  // 1. Manufacturing process: 30 points
-  if (
-    matchesArray(
-      project.process,
-      manufacturer.manufacturingProcesses
-    )
-  ) {
-    scoreBreakdown.manufacturingProcess = 30;
-    score += 30;
+  const processMatch = matchesArray(
+    project.process,
+    manufacturer.manufacturingProcesses
+  );
+
+  const materialMatch = materialsCompatible(
+    project.material,
+    manufacturer.materials
+  );
+
+  // Mandatory compatibility requirements.
+  if (!project.process) {
+    missing.push('Project manufacturing process is not specified');
+  } else if (processMatch) {
     reasons.push('Manufacturing process supported');
   } else {
-    missing.push('Manufacturing process not confirmed');
+    missing.push('Required manufacturing process is not supported');
   }
 
-  // 2. Material compatibility: 25 points
-  if (materialsCompatible(project.material, manufacturer.materials)) {
-    scoreBreakdown.materialCompatibility = 25;
-    score += 25;
+  if (!project.material) {
+    missing.push('Project material is not specified');
+  } else if (materialMatch) {
     reasons.push('Material compatibility confirmed');
   } else {
-    missing.push('Material compatibility not confirmed');
+    missing.push('Required material is not supported');
   }
 
-  // 3. Product category or capability: 20 points
-if (productCapabilityMatches(project, manufacturer)) {
-  scoreBreakdown.productCapability = 20;
-  score += 20;
-  reasons.push(
-    project.productCategory
-      ? `Manufacturer supports ${project.productCategory}`
-      : 'Product category or capability matches'
-  );
-} else {
-  missing.push('Product capability not confirmed');
-}
+  // Incompatible manufacturers cannot earn a recommendation score.
+  if (!processMatch || !materialMatch) {
+    return {
+      manufacturerId: manufacturer._id,
+      companyName: manufacturer.companyName,
+      country: manufacturer.country,
+      city: manufacturer.city,
+      website: manufacturer.website,
+      contactEmail: manufacturer.contactEmail,
+      verificationStatus: manufacturer.verificationStatus,
+      eligible: false,
+      matchScore: 0,
+      scoreBreakdown,
+      reasons,
+      missing,
+    };
+  }
 
-  // 4. Order quantity: 15 points
+  // Mandatory requirements passed.
+  scoreBreakdown.manufacturingProcess = 30;
+  scoreBreakdown.materialCompatibility = 25;
+
+  // 3. Product category or capability: 20 points.
+  if (productCapabilityMatches(project, manufacturer)) {
+    scoreBreakdown.productCapability = 20;
+    reasons.push('Manufacturer supports the product category');
+  } else {
+    missing.push('Product category or capability not confirmed');
+  }
+
+  // 4. Order quantity: 15 points.
   const minimumOrder = manufacturer.minimumOrderQuantity;
 
   if (
@@ -217,29 +255,30 @@ if (productCapabilityMatches(project, manufacturer)) {
   ) {
     if (project.quantity >= minimumOrder) {
       scoreBreakdown.orderQuantity = 15;
-      score += 15;
-      reasons.push('Order quantity meets minimum requirements');
+      reasons.push('Order quantity meets manufacturer minimum');
     } else {
       missing.push('Order quantity is below manufacturer minimum');
     }
   } else {
     scoreBreakdown.orderQuantity = 7.5;
-    score += 7.5;
     missing.push('Manufacturer minimum order quantity is unknown');
   }
 
-  // 5. Verification: 10 points
+  // 5. Verification: 10 points.
   if (manufacturer.verificationStatus === 'Verified') {
     scoreBreakdown.verificationStatus = 10;
-    score += 10;
     reasons.push('Manufacturer is verified');
   } else if (manufacturer.verificationStatus === 'Under Review') {
     scoreBreakdown.verificationStatus = 5;
-    score += 5;
     reasons.push('Manufacturer verification is under review');
   } else {
     missing.push('Manufacturer is not yet verified');
   }
+
+  const score = Object.values(scoreBreakdown).reduce(
+    (total, points) => total + points,
+    0
+  );
 
   return {
     manufacturerId: manufacturer._id,
@@ -249,6 +288,7 @@ if (productCapabilityMatches(project, manufacturer)) {
     website: manufacturer.website,
     contactEmail: manufacturer.contactEmail,
     verificationStatus: manufacturer.verificationStatus,
+    eligible: true,
     matchScore: score,
     scoreBreakdown,
     reasons,
@@ -261,6 +301,7 @@ function findManufacturerMatches(project, manufacturers) {
     .map((manufacturer) =>
       calculateManufacturerMatch(project, manufacturer)
     )
+    .filter((match) => match.eligible)
     .sort((a, b) => b.matchScore - a.matchScore);
 }
 

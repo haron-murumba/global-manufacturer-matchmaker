@@ -200,6 +200,14 @@ router.get('/match/:projectId', customerAuth, async (req, res) => {
       });
     }
 
+    if (project.specificationStatus === 'Customer Review') {
+      return res.status(409).json({
+        success: false,
+        code: 'SPECIFICATIONS_NOT_CONFIRMED',
+        message: 'Please review and confirm your product specifications before requesting manufacturer matches.',
+      });
+    }
+
     const manufacturers = await Manufacturer.find({
       verificationStatus: 'Verified',
     });
@@ -215,9 +223,18 @@ router.get('/match/:projectId', customerAuth, async (req, res) => {
         id: project._id,
         productName: project.productName,
         productCategory: project.productCategory,
+        productCategories: Array.isArray(project.productCategories) &&
+          project.productCategories.length
+            ? project.productCategories
+            : project.productCategory
+              ? [project.productCategory]
+              : [],
         quantity: project.quantity,
         material: project.material,
         process: project.process,
+        dimensions: project.dimensions,
+        technicalRequirements: project.technicalRequirements,
+        specificationStatus: project.specificationStatus,
       },
       count: matches.length,
       matches,

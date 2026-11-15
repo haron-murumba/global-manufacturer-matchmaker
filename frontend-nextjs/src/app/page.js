@@ -63,7 +63,7 @@ const faqs = [
   {
     question: "Can I upload CAD files?",
     answer:
-      "Yes. You can attach supported STEP, STP, IGES, IGS and PDF files to your sourcing projects.",
+      "Yes. You can securely attach supported STEP, STP, IGES, IGS and PDF files. You also provide product details such as materials, manufacturing process and order quantity. Uploading a file does not currently mean GMM automatically extracts or analyses its geometry.",
   },
   {
     question: "Are manufacturers verified?",
@@ -73,7 +73,7 @@ const faqs = [
   {
     question: "Can I request and compare quotations?",
     answer:
-      "GMM is designed to support RFQ management and quotation comparison. These workflows are part of the platform's ongoing development.",
+      "GMM supports RFQ management, supplier quotation submissions, response tracking and quotation comparison. Administrators can review submitted offers and record a supplier award.",
   },
   {
     question: "How do manufacturers join GMM?",
@@ -100,7 +100,7 @@ export default function HomePage() {
           <a href="#home">Home</a>
           <a href="#how-it-works">How It Works</a>
           <Link href="/manufacturers">Manufacturers</Link>
-          <a href="#about">About</a>
+          <a href="#capabilities">Capabilities</a>
           <a href="#faq">FAQ</a>
         </nav>
 
@@ -126,9 +126,10 @@ export default function HomePage() {
           </h1>
 
           <p className={styles.heroDescription}>
-            Find the right manufacturing partners for your products.
-            Match your requirements with manufacturers, manage RFQs and
-            compare quotations — all in one place.
+            Move from product design to manufacturing sourcing with one
+            organized workspace. Share CAD files and product requirements,
+            discover potential manufacturing partners, manage RFQs and
+            compare supplier quotations.
           </p>
 
           <div className={styles.heroActions}>
@@ -193,6 +194,100 @@ export default function HomePage() {
             </article>
           ))}
         </div>
+      </section>
+
+      <section className={styles.capabilitiesSection} id="capabilities">
+        <div className={styles.capabilitiesIntro}>
+          <span className={styles.eyebrow}>A MORE ORGANIZED SOURCING PROCESS</span>
+          <h2 className={styles.sectionHeading}>
+            From Product Requirements to Supplier Decisions
+          </h2>
+          <p className={styles.sectionSubtitle}>
+            Bring the information manufacturers need into one structured
+            sourcing workflow.
+          </p>
+        </div>
+
+        <div className={styles.capabilityGrid}>
+          <article className={styles.capabilityCard}>
+            <span className={styles.capabilityNumber}>01</span>
+            <h3>CAD Files & Product Specifications</h3>
+            <p>
+              Attach supported STEP, STP, IGES, IGS or PDF files. Describe
+              your product, category, material, manufacturing process and
+              required production quantity.
+            </p>
+            <span className={styles.capabilityNote}>
+              Your files and project details stay together.
+            </span>
+          </article>
+
+          <article className={styles.capabilityCard}>
+            <span className={styles.capabilityNumber}>02</span>
+            <h3>Global Manufacturer Sourcing</h3>
+            <p>
+              Organize manufacturer discovery around production requirements,
+              capabilities and verification status, with a sourcing focus on
+              manufacturers across Asia and Europe.
+            </p>
+            <span className={styles.capabilityNote}>
+              Actual matches depend on available supplier records.
+            </span>
+          </article>
+
+          <article className={styles.capabilityCard}>
+            <span className={styles.capabilityNumber}>03</span>
+            <h3>RFQs & Quotation Comparison</h3>
+            <p>
+              Manage requests for quotation, track supplier responses,
+              review submitted offers and compare quotations in one
+              centralized workflow.
+            </p>
+            <span className={styles.capabilityNote}>
+              Keep supplier decisions connected to each project.
+            </span>
+          </article>
+        </div>
+      </section>
+
+      <section className={styles.sourcingSection}>
+        <div className={styles.sourcingContent}>
+          <span className={styles.eyebrow}>BUILT AROUND YOUR PRODUCT</span>
+          <h2>Better product information. More useful manufacturer matches.</h2>
+          <p>
+            A useful sourcing brief goes beyond a product name. Include
+            production quantity, materials, manufacturing processes and
+            technical requirements so potential suppliers can assess the
+            project more effectively.
+          </p>
+          <Link href="/register" className={styles.primaryButton}>
+            Create a Sourcing Project →
+          </Link>
+        </div>
+        <div className={styles.sourcingFacts}>
+          <div>
+            <strong>CAD & Documents</strong>
+            <span>Attach technical files to your project.</span>
+          </div>
+          <div>
+            <strong>Supplier Verification</strong>
+            <span>Review manufacturer approval status.</span>
+          </div>
+          <div>
+            <strong>Quotation Workflow</strong>
+            <span>Track responses and compare submitted offers.</span>
+          </div>
+        </div>
+      </section>
+
+      <section className={styles.businessModelSection}>
+        <span className={styles.businessModelLabel}>GMM BUSINESS PROPOSITION</span>
+        <h2>$1,200 per product sourcing project</h2>
+        <p>
+          A defined sourcing-project service model focused on connecting
+          product requirements with suitable manufacturing partners and
+          organizing the quotation process.
+        </p>
       </section>
 
       <section className={styles.faqSection} id="faq">

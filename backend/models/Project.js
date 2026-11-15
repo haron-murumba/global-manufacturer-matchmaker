@@ -3,7 +3,6 @@ const mongoose = require('mongoose');
 
 const projectSchema = new mongoose.Schema(
   {
-
     customer: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Customer',
@@ -20,6 +19,11 @@ const projectSchema = new mongoose.Schema(
       type: String,
       trim: true,
       default: '',
+    },
+
+    productCategories: {
+      type: [String],
+      default: [],
     },
 
     description: {
@@ -41,6 +45,44 @@ const projectSchema = new mongoose.Schema(
     process: {
       type: String,
       trim: true,
+    },
+
+    dimensions: {
+      length: { type: Number, min: 0 },
+      width: { type: Number, min: 0 },
+      height: { type: Number, min: 0 },
+      unit: {
+        type: String,
+        enum: ['', 'mm', 'cm', 'in'],
+        default: '',
+      },
+    },
+
+    technicalRequirements: {
+      tolerances: { type: String, trim: true, default: '' },
+      surfaceFinish: { type: String, trim: true, default: '' },
+      standards: { type: String, trim: true, default: '' },
+      certifications: { type: String, trim: true, default: '' },
+      additionalRequirements: { type: String, trim: true, default: '' },
+    },
+
+    // Existing records retain the default Confirmed status for compatibility.
+    // New customer projects explicitly start as Customer Review.
+    specificationStatus: {
+      type: String,
+      enum: ['Customer Review', 'Confirmed'],
+      default: 'Confirmed',
+    },
+
+    specificationsConfirmedAt: {
+      type: Date,
+      default: null,
+    },
+
+    specificationsConfirmedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Customer',
+      default: null,
     },
 
     cadFile: {

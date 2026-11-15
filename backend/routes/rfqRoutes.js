@@ -6,6 +6,7 @@ const mongoose = require("mongoose");
 const RFQ = require("../models/RFQ");
 const Project = require("../models/Project");
 const Manufacturer = require("../models/Manufacturer");
+const { calculateManufacturerMatch, findManufacturerMatches } = require("../services/manufacturerMatching");
 const Notification = require("../models/Notification");
 const manufacturerAuth = require('../middleware/manufacturerAuth');
 const adminAuth = require("../middleware/adminAuth");
@@ -28,6 +29,53 @@ const validDate = (value) => {
   if (!value) return true;
   return !Number.isNaN(new Date(value).getTime());
 };
+
+// GET: Find compatible verified manufacturers for an RFQ project
+router.get("/matches/:projectId", adminAuth, async (req, res) => {
+  try {
+    const { projectId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(projectId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid project ID.",
+      });
+    }
+
+    const project = await Project.findById(projectId);
+
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        message: "Project not found.",
+      });
+    }
+
+    if (project.specificationStatus !== "Confirmed") {
+      return res.status(400).json({
+        success: false,
+        message: "Project specifications must be confirmed first.",
+      });
+    }
+
+    const manufacturers = await Manufacturer.find({
+      verificationStatus: "Verified",
+    });
+
+    const matches = findManufacturerMatches(project, manufacturers);
+
+    return res.status(200).json({
+      success: true,
+      count: matches.length,
+      matches,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to find compatible manufacturers.",
+    });
+  }
+});
 
 // Create RFQ and assign it to verified manufacturers
 router.post("/", adminAuth, async (req, res) => {
@@ -93,6 +141,13 @@ router.post("/", adminAuth, async (req, res) => {
       });
     }
 
+    if (project.specificationStatus !== "Confirmed") {
+      return res.status(400).json({
+        message:
+          "Customer specifications must be confirmed before creating an RFQ.",
+      });
+    }
+
     const manufacturers = await Manufacturer.find({
       _id: { $in: uniqueIds },
       verificationStatus: "Verified",
@@ -104,12 +159,36 @@ router.post("/", adminAuth, async (req, res) => {
       });
     }
 
+    // Enforce material and manufacturing-process compatibility on the backend.
+    // Use the confirmed project specifications, not values submitted by the client.
+    const incompatibleManufacturers = manufacturers
+      .map((manufacturer) => {
+        const match = calculateManufacturerMatch(project, manufacturer);
+
+        return match.eligible
+          ? null
+          : {
+              companyName: manufacturer.companyName,
+              missing: match.missing || [],
+            };
+      })
+      .filter(Boolean);
+
+    if (incompatibleManufacturers.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "One or more selected manufacturers do not support the project's required material and manufacturing process.",
+        incompatibleManufacturers,
+      });
+    }
+
     const rfq = await RFQ.create({
       project: projectId,
       title: title.trim(),
       quantity: qty,
-      material,
-      process,
+      material: project.material,
+      process: project.process,
       deliveryLocation,
       deliveryDeadline: deliveryDeadline || undefined,
       quotationDeadline: quotationDeadline || undefined,
@@ -445,6 +524,35 @@ router.patch("/:rfqId/award", adminAuth, async (req, res) => {
       return res.status(409).json({
         success: false,
         message: "This RFQ has already been awarded.",
+      });
+    }
+
+    // Ensure suppliers have a fair opportunity to respond.
+    const deadlinePassed =
+      rfq.quotationDeadline &&
+      new Date() > new Date(rfq.quotationDeadline);
+
+    const pendingSuppliers = rfq.quotations.filter(
+      (item) => item.status === "Pending"
+    );
+
+    if (pendingSuppliers.length > 0 && !deadlinePassed) {
+      return res.status(409).json({
+        success: false,
+        message:
+          "This RFQ cannot be awarded while invited suppliers are still pending. Wait until all suppliers respond or the quotation deadline passes.",
+        pendingSuppliers: pendingSuppliers.length,
+      });
+    }
+
+    const submittedQuotations = rfq.quotations.filter(
+      (item) => item.status === "Submitted"
+    );
+
+    if (submittedQuotations.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "This RFQ cannot be awarded without a submitted quotation.",
       });
     }
 

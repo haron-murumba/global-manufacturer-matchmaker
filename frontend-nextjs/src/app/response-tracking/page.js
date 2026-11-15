@@ -43,7 +43,7 @@ export default function ResponseTrackingPage() {
   ).length;
 
   const completed = rfqs.filter(
-    (rfq) => rfq.status === "Completed" && !rfq.selectedManufacturer
+    (rfq) => rfq.status === "Completed"
   ).length;
 
   const cancelled = rfqs.filter(

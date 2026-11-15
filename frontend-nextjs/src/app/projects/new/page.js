@@ -5,12 +5,24 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createCustomerProject } from "@/lib/api";
 
+const PRODUCT_CATEGORIES = [
+  "Smart Devices",
+  "Consumer Electronics",
+  "Bottles & Drinkware",
+  "Plastic Products",
+  "Industrial Components",
+  "Automotive Products",
+  "Laboratory Equipment",
+  "Other",
+];
+
+
 export default function CreateProjectPage() {
   const router = useRouter();
 
   const [formData, setFormData] = useState({
     productName: "",
-    productCategory: "",
+    productCategories: [],
     description: "",
     quantity: "",
     material: "",
@@ -28,9 +40,23 @@ export default function CreateProjectPage() {
     });
   }
 
+  function toggleCategory(category) {
+    setFormData((current) => ({
+      ...current,
+      productCategories: current.productCategories.includes(category)
+        ? current.productCategories.filter((item) => item !== category)
+        : [...current.productCategories, category],
+    }));
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
+
+    if (formData.productCategories.length === 0) {
+      setError("Please select at least one product category.");
+      return;
+    }
 
     if (!file) {
       setError("Please upload a CAD file or specification sheet.");
@@ -40,8 +66,15 @@ export default function CreateProjectPage() {
     const data = new FormData();
 
     Object.entries(formData).forEach(([key, value]) => {
-      data.append(key, value);
+      if (key !== "productCategories") {
+        data.append(key, value);
+      }
     });
+
+    data.append(
+      "productCategories",
+      JSON.stringify(formData.productCategories)
+    );
 
     data.append("cadFile", file);
 
@@ -54,10 +87,9 @@ export default function CreateProjectPage() {
       }
 
       setLoading(true);
-      await createCustomerProject(data, token);
+      const result = await createCustomerProject(data, token);
 
-      router.push("/projects");
-      router.refresh();
+      router.push(`/projects/${result.project._id}/review`);
     } catch (err) {
       setError(err.message || "Project creation failed.");
     } finally {
@@ -148,26 +180,43 @@ export default function CreateProjectPage() {
             />
           </label>
 
-          <label style={labelStyle}>
-              Product Category *
-              <select
-                style={inputStyle}
-                name="productCategory"
-                value={formData.productCategory}
-                onChange={handleChange}
-                required
-              >
-                <option value="">Select a product category</option>
-                <option value="Smart Devices">Smart Devices</option>
-                <option value="Consumer Electronics">Consumer Electronics</option>
-                <option value="Bottles & Drinkware">Bottles & Drinkware</option>
-                <option value="Plastic Products">Plastic Products</option>
-                <option value="Industrial Components">Industrial Components</option>
-                <option value="Automotive Products">Automotive Products</option>
-                <option value="Laboratory Equipment">Laboratory Equipment</option>
-                <option value="Other">Other</option>
-              </select>
-            </label>
+          <fieldset style={{
+            border: "1px solid #334155",
+            borderRadius: "8px",
+            padding: "16px",
+            display: "grid",
+            gap: "12px",
+          }}>
+            <legend style={{ color: "#cbd5e1", fontSize: "14px", fontWeight: 600 }}>
+              Product Categories * (select all that apply)
+            </legend>
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+              gap: "12px",
+            }}>
+              {PRODUCT_CATEGORIES.map((category) => (
+                <label key={category} style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "9px",
+                  color: "#cbd5e1",
+                  fontSize: "13px",
+                  cursor: "pointer",
+                }}>
+                  <input
+                    type="checkbox"
+                    checked={formData.productCategories.includes(category)}
+                    onChange={() => toggleCategory(category)}
+                  />
+                  {category}
+                </label>
+              ))}
+            </div>
+            <small style={{ color: "#94a3b8" }}>
+              Choose every category that describes your product.
+            </small>
+          </fieldset>
 
           <label style={labelStyle}>
             Product Description *

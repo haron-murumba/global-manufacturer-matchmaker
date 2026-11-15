@@ -17,6 +17,126 @@ const PROJECT_STATUSES = [
   'Completed',
 ];
 
+function parseSpecificationObject(value, fieldName) {
+  if (value === undefined) {
+    return { value: undefined, error: null };
+  }
+
+  if (typeof value === 'string') {
+    if (!value.trim()) {
+      return { value: {}, error: null };
+    }
+
+    try {
+      value = JSON.parse(value);
+    } catch (error) {
+      return {
+        value: undefined,
+        error: `${fieldName} must contain valid JSON.`,
+      };
+    }
+  }
+
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {
+      value: undefined,
+      error: `${fieldName} must be an object.`,
+    };
+  }
+
+  return { value, error: null };
+}
+
+function validateSpecificationDetails(dimensions, requirements) {
+  if (dimensions) {
+    for (const field of ['length', 'width', 'height']) {
+      const value = dimensions[field];
+
+      if (
+        value !== undefined &&
+        value !== null &&
+        value !== '' &&
+        (!Number.isFinite(Number(value)) || Number(value) < 0)
+      ) {
+        return `${field} must be a valid non-negative number.`;
+      }
+    }
+
+    if (
+      dimensions.unit !== undefined &&
+      !['', 'mm', 'cm', 'in'].includes(dimensions.unit)
+    ) {
+      return 'Dimension unit must be mm, cm, or in.';
+    }
+  }
+
+  if (requirements) {
+    const allowed = [
+      'tolerances',
+      'surfaceFinish',
+      'standards',
+      'certifications',
+      'additionalRequirements',
+    ];
+
+    for (const field of allowed) {
+      if (
+        requirements[field] !== undefined &&
+        typeof requirements[field] !== 'string'
+      ) {
+        return `${field} must be text.`;
+      }
+    }
+  }
+
+  return null;
+}
+
+function normalizeDimensions(dimensions) {
+  if (!dimensions) return undefined;
+
+  const normalized = {};
+
+  for (const field of ['length', 'width', 'height']) {
+    const value = dimensions[field];
+
+    normalized[field] =
+      value === undefined || value === null || value === ''
+        ? undefined
+        : Number(value);
+  }
+
+  normalized.unit = dimensions.unit || '';
+  return normalized;
+}
+
+function getProductCategories(body) {
+  let categories = body.productCategories;
+
+  if (typeof categories === 'string') {
+    try {
+      categories = JSON.parse(categories);
+    } catch (error) {
+      categories = [];
+    }
+  }
+
+  if (Array.isArray(categories)) {
+    return [...new Set(
+      categories
+        .filter((category) => typeof category === 'string')
+        .map((category) => category.trim())
+        .filter(Boolean)
+    )];
+  }
+
+  if (typeof body.productCategory === 'string' && body.productCategory.trim()) {
+    return [body.productCategory.trim()];
+  }
+
+  return [];
+}
+
 function validateProjectFields(body, isCreate = false) {
   if (isCreate || body.productName !== undefined) {
     if (typeof body.productName !== 'string' || !body.productName.trim()) {
@@ -24,12 +144,13 @@ function validateProjectFields(body, isCreate = false) {
     }
   }
 
-  if (isCreate || body.productCategory !== undefined) {
-    if (
-      typeof body.productCategory !== 'string' ||
-      !body.productCategory.trim()
-    ) {
-      return 'Product category is required.';
+  if (
+    isCreate ||
+    body.productCategory !== undefined ||
+    body.productCategories !== undefined
+  ) {
+    if (getProductCategories(body).length === 0) {
+      return 'Select at least one product category.';
     }
   }
 
@@ -113,7 +234,23 @@ router.post('/mine', customerAuth, upload.single('cadFile'), async (req, res) =>
       process,
     } = req.body;
 
-    const validationError = validateProjectFields(req.body, true);
+    const parsedDimensions = parseSpecificationObject(
+      req.body.dimensions,
+      'Dimensions'
+    );
+    const parsedRequirements = parseSpecificationObject(
+      req.body.technicalRequirements,
+      'Technical requirements'
+    );
+
+    const validationError =
+      validateProjectFields(req.body, true) ||
+      parsedDimensions.error ||
+      parsedRequirements.error ||
+      validateSpecificationDetails(
+        parsedDimensions.value,
+        parsedRequirements.value
+      );
 
     if (validationError) {
       return res.status(400).json({
@@ -131,14 +268,22 @@ router.post('/mine', customerAuth, upload.single('cadFile'), async (req, res) =>
 
     uploadedFile = await uploadToCloudinary(req.file);
 
+    const productCategories = getProductCategories(req.body);
+
     const project = await Project.create({
       customer: req.customer.customerId,
       productName,
-      productCategory,
+      productCategory: productCategories[0],
+      productCategories,
       description,
       quantity,
       material,
       process,
+      dimensions: normalizeDimensions(parsedDimensions.value),
+      technicalRequirements: parsedRequirements.value,
+      specificationStatus: 'Customer Review',
+      specificationsConfirmedAt: null,
+      specificationsConfirmedBy: null,
       cadFile: {
         originalName: req.file.originalname,
         filePath: uploadedFile.secure_url,
@@ -300,6 +445,14 @@ router.put('/:id', adminAuth, upload.single('cadFile'), async (req, res) => {
       if (req.body[field] !== undefined) {
         project[field] = req.body[field];
       }
+    }
+
+    if (
+      req.body.productCategories !== undefined ||
+      req.body.productCategory !== undefined
+    ) {
+      project.productCategories = getProductCategories(req.body);
+      project.productCategory = project.productCategories[0] || '';
     }
 
     const previousCadPublicId = project.cadFile?.publicId;
@@ -465,7 +618,23 @@ router.put('/mine/:id', customerAuth, upload.single('cadFile'), async (req, res)
       });
     }
 
-    const validationError = validateProjectFields(req.body);
+    const parsedDimensions = parseSpecificationObject(
+      req.body.dimensions,
+      'Dimensions'
+    );
+    const parsedRequirements = parseSpecificationObject(
+      req.body.technicalRequirements,
+      'Technical requirements'
+    );
+
+    const validationError =
+      validateProjectFields(req.body) ||
+      parsedDimensions.error ||
+      parsedRequirements.error ||
+      validateSpecificationDetails(
+        parsedDimensions.value,
+        parsedRequirements.value
+      );
 
     if (validationError) {
       return res.status(400).json({
@@ -495,10 +664,38 @@ router.put('/mine/:id', customerAuth, upload.single('cadFile'), async (req, res)
       'process',
     ];
 
+    let specificationsChanged = Boolean(req.file);
+
     for (const field of allowedFields) {
       if (req.body[field] !== undefined) {
         project[field] = req.body[field];
+        specificationsChanged = true;
       }
+    }
+
+    if (
+      req.body.productCategories !== undefined ||
+      req.body.productCategory !== undefined
+    ) {
+      project.productCategories = getProductCategories(req.body);
+      project.productCategory = project.productCategories[0] || '';
+      specificationsChanged = true;
+    }
+
+    if (parsedDimensions.value !== undefined) {
+      project.dimensions = normalizeDimensions(parsedDimensions.value);
+      specificationsChanged = true;
+    }
+
+    if (parsedRequirements.value !== undefined) {
+      project.technicalRequirements = parsedRequirements.value;
+      specificationsChanged = true;
+    }
+
+    if (specificationsChanged) {
+      project.specificationStatus = 'Customer Review';
+      project.specificationsConfirmedAt = null;
+      project.specificationsConfirmedBy = null;
     }
 
     const previousCadPublicId = project.cadFile?.publicId;
@@ -547,6 +744,66 @@ router.put('/mine/:id', customerAuth, upload.single('cadFile'), async (req, res)
     return res.status(400).json({
       success: false,
       message: 'Failed to update your project.',
+    });
+  }
+});
+
+// POST: Confirm product specifications for manufacturer matching.
+router.post('/mine/:id/confirm-specifications', customerAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!/^[0-9a-fA-F]{24}$/.test(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid project ID.',
+      });
+    }
+
+    const project = await Project.findOne({
+      _id: id,
+      customer: req.customer.customerId,
+    });
+
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        message: 'Your project was not found.',
+      });
+    }
+
+    if (
+      !project.productName?.trim() ||
+      !(
+        (project.productCategories || []).length > 0 ||
+        project.productCategory?.trim()
+      ) ||
+      !project.description?.trim() ||
+      !Number.isFinite(Number(project.quantity)) ||
+      Number(project.quantity) < 1 ||
+      !project.cadFile?.publicId
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: 'Complete the required product details and upload a specification file before confirming.',
+      });
+    }
+
+    project.specificationStatus = 'Confirmed';
+    project.specificationsConfirmedAt = new Date();
+    project.specificationsConfirmedBy = req.customer.customerId;
+
+    await project.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Product specifications confirmed. Manufacturer matching is now available.',
+      project,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to confirm product specifications.',
     });
   }
 });

@@ -6,8 +6,8 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   getProjects,
-  getManufacturers,
   getRFQs,
+  getRFQManufacturerMatches,
   createRFQ,
   awardRFQ,
 } from "@/lib/api";
@@ -27,11 +27,12 @@ function RFQContent() {
   const searchParams = useSearchParams();
   const selectedRfqId = searchParams.get("rfqId");
   const [projects, setProjects] = useState([]);
-  const [manufacturers, setManufacturers] = useState([]);
+  const [compatibleManufacturers, setCompatibleManufacturers] = useState([]);
+  const [matchingLoading, setMatchingLoading] = useState(false);
 
-  const verifiedManufacturers = manufacturers.filter(
-  (manufacturer) => manufacturer.verificationStatus === "Verified"
-);
+  const confirmedProjects = projects.filter(
+    (project) => project.specificationStatus === "Confirmed"
+  );
   const [rfqs, setRfqs] = useState([]);
   const [selectedManufacturers, setSelectedManufacturers] = useState([]);
   const [form, setForm] = useState(emptyForm);
@@ -65,14 +66,12 @@ function RFQContent() {
         return;
       }
 
-      const [projectData, manufacturerData, rfqData] = await Promise.all([
+      const [projectData, rfqData] = await Promise.all([
         getProjects(token),
-        getManufacturers(),
         getRFQs(token),
       ]);
 
       setProjects(projectData.projects || []);
-      setManufacturers(manufacturerData.manufacturers || []);
       setRfqs(rfqData.rfqs || []);
     } catch (err) {
       setError(err.message || "Unable to load RFQ information.");
@@ -88,19 +87,43 @@ function RFQContent() {
       });
     }, []);
 
-    function handleProjectChange(event) {
-      const project = projects.find(
-        (item) => item._id === event.target.value
-      );
+    async function handleProjectChange(event) {
+      const projectId = event.target.value;
+      const project = projects.find((item) => item._id === projectId);
 
       setForm((current) => ({
         ...current,
-        projectId: event.target.value,
+        projectId,
         title: project ? `${project.productName} - Supplier RFQ` : "",
         quantity: project ? String(project.quantity || "") : "",
         material: project?.material || "",
         process: project?.process || "",
       }));
+
+      // Never carry supplier selections across different projects.
+      setSelectedManufacturers([]);
+      setCompatibleManufacturers([]);
+      setError("");
+
+      if (!projectId) return;
+
+      const token = localStorage.getItem("adminToken");
+
+      if (!token) {
+        setError("Administrator login required. Please sign in first.");
+        return;
+      }
+
+      try {
+        setMatchingLoading(true);
+
+        const result = await getRFQManufacturerMatches(projectId, token);
+        setCompatibleManufacturers(result.matches || []);
+      } catch (err) {
+        setError(err.message || "Unable to find compatible manufacturers.");
+      } finally {
+        setMatchingLoading(false);
+      }
     }
 
     function toggleManufacturer(id) {
@@ -214,7 +237,7 @@ function RFQContent() {
         </article>
         <article className="summary-card">
           <span>Verified Suppliers</span>
-          <strong>{verifiedManufacturers.length}</strong>
+          <strong>{compatibleManufacturers.length}</strong>
         </article>
         <article className="summary-card">
           <span>Quotations Received</span>
@@ -249,7 +272,7 @@ function RFQContent() {
                   required
                 >
                   <option value="">Select a project</option>
-                  {projects.map((project) => (
+                  {confirmedProjects.map((project) => (
                     <option key={project._id} value={project._id}>
                       {project.productName}
                     </option>
@@ -344,27 +367,41 @@ function RFQContent() {
                 Choose the suppliers who should receive this RFQ.
               </p>
 
-              {manufacturers.length === 0 ? (
+              {confirmedProjects.length === 0 && (
                 <p className="muted">
-                  No verified manufacturers available. Approve suppliers in
-                  the Admin Dashboard first.
+                  No confirmed projects are available. Customers must confirm
+                  their product specifications before an RFQ can be created.
+                </p>
+              )}
+
+              {!form.projectId ? (
+                <p className="muted">
+                  Select a confirmed project to find compatible verified manufacturers.
+                </p>
+              ) : matchingLoading ? (
+                <p className="muted">
+                  Checking verified manufacturers against this project's material and process...
+                </p>
+              ) : compatibleManufacturers.length === 0 ? (
+                <p className="muted">
+                  No verified manufacturers currently match this project's required material and manufacturing process.
                 </p>
               ) : (
                 <div className="supplier-grid">
-                  {verifiedManufacturers.map((manufacturer) => (
-                    <label className="supplier-option" key={manufacturer._id}>
+                  {compatibleManufacturers.map((match) => (
+                    <label className="supplier-option" key={match.manufacturerId}>
                       <input
                         type="checkbox"
-                        checked={selectedManufacturers.includes(manufacturer._id)}
-                        onChange={() => toggleManufacturer(manufacturer._id)}
+                        checked={selectedManufacturers.includes(String(match.manufacturerId))}
+                        onChange={() => toggleManufacturer(String(match.manufacturerId))}
                       />
                       <span>
-                        <strong>{manufacturer.companyName}</strong>
+                        <strong>{match.companyName}</strong>
                         <small>
-                          {manufacturer.city}, {manufacturer.country}
+                          {match.city}, {match.country}
                         </small>
                         <small>
-                          Processes: {(manufacturer.manufacturingProcesses || []).join(", ")}
+                          Compatibility score: {match.matchScore}%
                         </small>
                       </span>
                     </label>
@@ -383,6 +420,9 @@ function RFQContent() {
               disabled={
                 saving ||
                 !form.projectId ||
+                !confirmedProjects.some(
+                  (project) => project._id === form.projectId
+                ) ||
                 selectedManufacturers.length === 0
               }
             >
@@ -436,6 +476,37 @@ function RFQContent() {
                 </div>
 
                 <h4>Supplier Quotations</h4>
+
+                {(() => {
+                  const pendingCount = rfq.quotations.filter(
+                    (item) => item.status === "Pending"
+                  ).length;
+
+                  const deadlinePassed =
+                    rfq.quotationDeadline &&
+                    new Date() > new Date(rfq.quotationDeadline);
+
+                  if (pendingCount > 0 && !deadlinePassed) {
+                    return (
+                      <p className="muted">
+                        Supplier selection is locked. Waiting for {pendingCount}
+                        supplier{pendingCount === 1 ? "" : "s"} to respond or for
+                        the quotation deadline to pass.
+                      </p>
+                    );
+                  }
+
+                  if (pendingCount > 0 && deadlinePassed) {
+                    return (
+                      <p className="muted">
+                        The quotation deadline has passed. You may proceed using
+                        the quotations received.
+                      </p>
+                    );
+                  }
+
+                  return null;
+                })()}
 
                 {rfq.quotations.map((quotation) => {
                   const manufacturer = quotation.manufacturer;
@@ -494,7 +565,18 @@ function RFQContent() {
                           {!rfq.selectedManufacturer && rfq.status !== "Cancelled" && (
                             <button
                               className="primary-button"
-                              disabled={saving}
+                              disabled={
+                                saving ||
+                                (
+                                  rfq.quotations.some(
+                                    (item) => item.status === "Pending"
+                                  ) &&
+                                  (
+                                    !rfq.quotationDeadline ||
+                                    new Date() <= new Date(rfq.quotationDeadline)
+                                  )
+                                )
+                              }
                               onClick={() =>
                                 handleAwardRFQ(rfq._id, manufacturer._id)
                               }
@@ -525,8 +607,9 @@ function RFQContent() {
                   <>
                     {submitted.length === 1 && (
                       <p>
-                        One quotation received. Awaiting additional supplier quotations
-                        before making a comparison.
+                        {rfq.selectedManufacturer
+                          ? "This RFQ was awarded using the only quotation received."
+                          : "One quotation received. Awaiting additional supplier quotations before making a comparison."}
                       </p>
                     )}
 

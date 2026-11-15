@@ -73,6 +73,14 @@ export const getCadDownloadLink = (id, token) =>
 export const getManufacturers = () =>
   apiRequest("/api/manufacturers/");
 
+// Administrator: get verified manufacturers compatible with a project
+export const getRFQManufacturerMatches = (projectId, token) =>
+  apiRequest(`/api/rfqs/matches/${projectId}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
 export const registerManufacturer = (manufacturer) =>
   apiRequest("/api/manufacturers/", {
     method: "POST",
@@ -253,6 +261,14 @@ export const updateCustomerProject = (id, formData, token) =>
       Authorization: `Bearer ${token}`,
     },
     body: formData,
+  });
+
+export const confirmCustomerSpecifications = (id, token) =>
+  apiRequest(`/api/projects/mine/${id}/confirm-specifications`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
   });
 
 export const deleteCustomerProject = (id, token) =>

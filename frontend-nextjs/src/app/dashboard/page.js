@@ -99,10 +99,14 @@ export default function Home() {
       setProjects(projectRecords);
       setManufacturers(manufacturerRecords);
 
-      if (projectRecords.length > 0) {
+      const confirmedProject = projectRecords.find(
+        (project) => project.specificationStatus === "Confirmed"
+      );
+
+      if (confirmedProject) {
         try {
           const matchingResult = await getManufacturerMatches(
-            projectRecords[0]._id,
+            confirmedProject._id,
             token
           );
 
@@ -110,6 +114,8 @@ export default function Home() {
         } catch (matchErr) {
           setMatchError(matchErr.message);
         }
+      } else {
+        setMatches([]);
       }
     } catch (err) {
       setError(err.message || "Unable to load dashboard data.");
@@ -131,6 +137,9 @@ export default function Home() {
 }, [router]);
 
   const latestProject = projects[0];
+  const matchingProject = projects.find(
+    (project) => project.specificationStatus === "Confirmed"
+  );
 
   const verifiedManufacturers = manufacturers.filter(
     (manufacturer) => manufacturer.verificationStatus === "Verified"
@@ -492,54 +501,73 @@ export default function Home() {
                 <span className="overview-icon">◈</span>
               </div>
 
-              {!loading && latestProject && (
+              {!loading && matchingProject && (
                 <>
-                  <div className="match-score">
-                    <div className="score-number">
-                      {bestMatch ? bestMatch.matchScore : 0}
-                      <span>%</span>
+                  {matches.length > 0 ? (
+                    <>
+                      <div className="match-score">
+                        <div className="score-number">
+                          {bestMatch ? bestMatch.matchScore : 0}
+                          <span>%</span>
+                        </div>
+
+                        <div>
+                          <strong>Best compatible match</strong>
+                          <p>{matchingProject.productName}</p>
+                        </div>
+                      </div>
+
+                      <div className="progress-track">
+                        <div
+                          className="progress-fill"
+                          style={{
+                            width: `${bestMatch ? bestMatch.matchScore : 0}%`,
+                          }}
+                        />
+                      </div>
+
+                      {matches.slice(0, 3).map((match) => (
+                        <div
+                          className="match-details"
+                          key={match.manufacturerId}
+                        >
+                          <span>{match.companyName}</span>
+                          <strong>{match.matchScore}% match</strong>
+                        </div>
+                      ))}
+                    </>
+                  ) : (
+                    <div className="matching-empty-state">
+                      <strong>No compatible manufacturers found</strong>
+                      <p>
+                        No verified manufacturer currently supports both
+                        {` ${matchingProject.material || "the required material"}`}
+                        {` and ${matchingProject.process || "the required manufacturing process"}`}.
+                      </p>
+                      <p>
+                        A suitable manufacturer must be registered and verified
+                        before GMM can recommend them for this project.
+                      </p>
                     </div>
-
-                    <div>
-                      <strong>Best project match</strong>
-                      <p>{latestProject.productName}</p>
-                    </div>
-                  </div>
-
-                  <div className="progress-track">
-                    <div
-                      className="progress-fill"
-                      style={{
-                        width: `${
-                          bestMatch ? bestMatch.matchScore : 0
-                        }%`,
-                      }}
-                    />
-                  </div>
-
-                  {matches.length === 0 && (
-                    <p>
-                      No matching manufacturers found for this project.
-                    </p>
                   )}
-
-                  {matches.slice(0, 3).map((match) => (
-                    <div
-                      className="match-details"
-                      key={match.manufacturerId}
-                    >
-                      <span>{match.companyName}</span>
-                      <strong>{match.matchScore}% match</strong>
-                    </div>
-                  ))}
 
                   {matchError && <p>{matchError}</p>}
                 </>
               )}
 
-              {!loading && !latestProject && (
+              {!loading && !projects.length && (
                 <p>
-                  Create a project to see manufacturer matches.
+                  Create a project and confirm its specifications to see manufacturer matches.
+                </p>
+              )}
+
+              {!loading && projects.length > 0 && !matchingProject && (
+                <p>
+                  Your project specifications need review and confirmation before manufacturer matching can begin.
+                  {" "}
+                  <Link href="/projects" className="text-button">
+                    Review your projects →
+                  </Link>
                 </p>
               )}
 

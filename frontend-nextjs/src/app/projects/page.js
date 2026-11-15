@@ -14,9 +14,21 @@ import styles from "./projects.module.css";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+const PRODUCT_CATEGORIES = [
+  "Smart Devices",
+  "Consumer Electronics",
+  "Bottles & Drinkware",
+  "Plastic Products",
+  "Industrial Components",
+  "Automotive Products",
+  "Laboratory Equipment",
+  "Other",
+];
+
+
 const emptyForm = {
   productName: "",
-  productCategory: "",
+  productCategories: [],
   description: "",
   quantity: "",
   material: "",
@@ -72,7 +84,12 @@ export default function ProjectsPage() {
   function openEditForm(project) {
     setForm({
       productName: project.productName || "",
-      productCategory: project.productCategory || "",
+      productCategories: Array.isArray(project.productCategories) &&
+        project.productCategories.length
+          ? project.productCategories
+          : project.productCategory
+            ? [project.productCategory]
+            : [],
       description: project.description || "",
       quantity: project.quantity || "",
       material: project.material || "",
@@ -99,11 +116,25 @@ export default function ProjectsPage() {
   }
 
 
+  function toggleCategory(category) {
+    setForm((current) => ({
+      ...current,
+      productCategories: current.productCategories.includes(category)
+        ? current.productCategories.filter((item) => item !== category)
+        : [...current.productCategories, category],
+    }));
+  }
+
   async function handleSubmit(event) {
     event.preventDefault();
 
     setError("");
     setSuccess("");
+
+    if (!form.productCategories.length) {
+      setError("Please select at least one product category.");
+      return;
+    }
 
     if (!form.productName.trim()) {
       setError("Product name is required.");
@@ -118,7 +149,7 @@ export default function ProjectsPage() {
     const data = new FormData();
 
     data.append("productName", form.productName.trim());
-    data.append("productCategory", form.productCategory);
+    data.append("productCategories", JSON.stringify(form.productCategories));
     data.append("description", form.description.trim());
     data.append("quantity", form.quantity);
     data.append("material", form.material.trim());
@@ -141,14 +172,15 @@ export default function ProjectsPage() {
 
       if (editingId) {
         await updateCustomerProject(editingId, data, token);
-        setSuccess("Project updated successfully.");
+        closeForm();
+        setSuccess("Project updated. Please review and reconfirm its specifications before matching.");
+        await loadProjects();
       } else {
-        await createCustomerProject(data, token);
-        setSuccess("Project created successfully.");
+        const result = await createCustomerProject(data, token);
+        closeForm();
+        router.push(`/projects/${result.project._id}/review`);
+        return;
       }
-
-      closeForm();
-      await loadProjects();
     } catch (err) {
       setError(err.message || "Could not save project.");
     } finally {
@@ -319,6 +351,17 @@ return (
                       <span className={styles.subtext}>
                         {project.description || "No description"}
                       </span>
+                      <span className={styles.subtext}>
+                        Specifications: {project.specificationStatus || "Confirmed"}
+                      </span>
+                      <Link
+                        href={`/projects/${project._id}/review`}
+                        className={styles.actionButton}
+                      >
+                        {project.specificationStatus === "Confirmed"
+                          ? "Review specs"
+                          : "Review & confirm"}
+                      </Link>
                     </div>
                   </td>
 
@@ -415,25 +458,36 @@ return (
               />
             </label>
 
-            <label>
-              Product category *
-              <select
-                name="productCategory"
-                value={form.productCategory}
-                onChange={handleChange}
-                required
-              >
-                <option value="">Select a product category</option>
-                <option value="Smart Devices">Smart Devices</option>
-                <option value="Consumer Electronics">Consumer Electronics</option>
-                <option value="Bottles & Drinkware">Bottles & Drinkware</option>
-                <option value="Plastic Products">Plastic Products</option>
-                <option value="Industrial Components">Industrial Components</option>
-                <option value="Automotive Products">Automotive Products</option>
-                <option value="Laboratory Equipment">Laboratory Equipment</option>
-                <option value="Other">Other</option>
-              </select>
-            </label>
+            <fieldset style={{
+              border: "1px solid var(--border, #334155)",
+              borderRadius: "9px",
+              padding: "15px",
+              display: "grid",
+              gap: "12px",
+            }}>
+              <legend>Product categories * (select all that apply)</legend>
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
+                gap: "12px",
+              }}>
+                {PRODUCT_CATEGORIES.map((category) => (
+                  <label key={category} style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "9px",
+                    cursor: "pointer",
+                  }}>
+                    <input
+                      type="checkbox"
+                      checked={form.productCategories.includes(category)}
+                      onChange={() => toggleCategory(category)}
+                    />
+                    {category}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
 
             <label>
               Product description
