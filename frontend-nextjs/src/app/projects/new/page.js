@@ -3,13 +3,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createProject } from "@/lib/api";
+import { createCustomerProject } from "@/lib/api";
 
 export default function CreateProjectPage() {
   const router = useRouter();
 
   const [formData, setFormData] = useState({
     productName: "",
+    productCategory: "",
     description: "",
     quantity: "",
     material: "",
@@ -45,14 +46,16 @@ export default function CreateProjectPage() {
     data.append("cadFile", file);
 
     try {
-      const token = localStorage.getItem("adminToken");
+      const token = localStorage.getItem("customerToken");
 
       if (!token) {
-        throw new Error("Please log in as an administrator before creating a project.");
+        router.push("/login");
+        return;
       }
 
       setLoading(true);
-      await createProject(data, token);
+      await createCustomerProject(data, token);
+
       router.push("/projects");
       router.refresh();
     } catch (err) {
@@ -144,6 +147,27 @@ export default function CreateProjectPage() {
               required
             />
           </label>
+
+          <label style={labelStyle}>
+              Product Category *
+              <select
+                style={inputStyle}
+                name="productCategory"
+                value={formData.productCategory}
+                onChange={handleChange}
+                required
+              >
+                <option value="">Select a product category</option>
+                <option value="Smart Devices">Smart Devices</option>
+                <option value="Consumer Electronics">Consumer Electronics</option>
+                <option value="Bottles & Drinkware">Bottles & Drinkware</option>
+                <option value="Plastic Products">Plastic Products</option>
+                <option value="Industrial Components">Industrial Components</option>
+                <option value="Automotive Products">Automotive Products</option>
+                <option value="Laboratory Equipment">Laboratory Equipment</option>
+                <option value="Other">Other</option>
+              </select>
+            </label>
 
           <label style={labelStyle}>
             Product Description *

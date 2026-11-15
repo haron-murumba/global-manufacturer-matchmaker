@@ -38,8 +38,12 @@ export default function ResponseTrackingPage() {
   const total = rfqs.length;
 
   const sent = rfqs.filter((rfq) => rfq.status === "Sent").length;
+  const awarded = rfqs.filter(
+    (rfq) => rfq.status === "Completed" && rfq.selectedManufacturer
+  ).length;
+
   const completed = rfqs.filter(
-    (rfq) => rfq.status === "Completed"
+    (rfq) => rfq.status === "Completed" && !rfq.selectedManufacturer
   ).length;
 
   const cancelled = rfqs.filter(
@@ -50,7 +54,7 @@ export default function ResponseTrackingPage() {
     <main className="tracking-page">
       <header className="page-heading">
         <div>
-          <Link href="/" className="back-link">
+          <Link href="/dashboard" className="back-link">
             ← Dashboard
           </Link>
           <p className="eyebrow">PROCUREMENT WORKSPACE</p>
@@ -83,8 +87,13 @@ export default function ResponseTrackingPage() {
             </div>
 
             <div className="stat-card">
-              <span>Completed RFQs</span>
+              <span>Responses complete</span>
               <strong>{completed}</strong>
+            </div>
+
+            <div className="stat-card">
+              <span>Awarded RFQs</span>
+              <strong>{awarded}</strong>
             </div>
 
             <div className="stat-card">
@@ -129,6 +138,13 @@ export default function ResponseTrackingPage() {
 
                   const totalSuppliers = quotations.length;
 
+                  const displayStatus =
+                    rfq.status === "Completed"
+                      ? rfq.selectedManufacturer
+                        ? "Awarded"
+                        : "Responses complete"
+                      : rfq.status || "Draft";
+
                   const progress = totalSuppliers
                     ? Math.round(
                         ((submitted + declined) / totalSuppliers) * 100
@@ -151,7 +167,7 @@ export default function ResponseTrackingPage() {
                             rfq.status || "Draft"
                           ).toLowerCase()}`}
                         >
-                          {rfq.status || "Draft"}
+                          {displayStatus}
                         </span>
                       </div>
 
@@ -260,7 +276,7 @@ export default function ResponseTrackingPage() {
 
         .stats-grid {
           display: grid;
-          grid-template-columns: repeat(4, 1fr);
+          grid-template-columns: repeat(5, minmax(0, 1fr));
           gap: 16px;
           margin-bottom: 28px;
         }

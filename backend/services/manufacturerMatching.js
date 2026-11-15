@@ -74,6 +74,90 @@ function materialsCompatible(projectMaterial, manufacturerMaterials = []) {
   });
 }
 
+// Controlled product-category matching.
+// Only recognized category terms and aliases are treated as matches.
+function productCapabilityMatches(project, manufacturer) {
+  const categoryGroups = {
+    'smart devices': [
+      'smart devices',
+      'consumer electronics',
+    ],
+    'consumer electronics': [
+      'smart devices',
+      'consumer electronics',
+    ],
+    'bottles drinkware': [
+      'bottles drinkware',
+      'bottles',
+      'drinkware',
+      'water bottles',
+      'beverage containers',
+      'plastic bottles',
+      'drink containers',
+    ],
+    'plastic products': [
+      'plastic products',
+      'plastic components',
+      'custom plastic parts',
+      'plastic parts',
+    ],
+    'industrial components': [
+      'industrial components',
+      'precision cnc components',
+      'machine components',
+    ],
+    'automotive products': [
+      'automotive products',
+      'automotive components',
+      'automotive parts',
+      'auto parts',
+    ],
+    'laboratory equipment': [
+      'laboratory equipment',
+      'laboratory instruments',
+      'laboratory instruments and thermometers',
+      'lab equipment',
+      'thermometers',
+    ],
+  };
+
+  const projectCategory = normalize(project.productCategory);
+
+  const manufacturerTerms = [
+    ...(manufacturer.productCategories || []),
+    ...(manufacturer.capabilities || []),
+  ]
+    .map(normalize)
+    .filter(Boolean);
+
+  // Use the selected category when one is available.
+  if (projectCategory && projectCategory !== 'other') {
+    const acceptedTerms = categoryGroups[projectCategory] || [
+      projectCategory,
+    ];
+
+    return manufacturerTerms.some((term) =>
+      acceptedTerms.some(
+        (accepted) =>
+          term === normalize(accepted) ||
+          term.includes(normalize(accepted))
+      )
+    );
+  }
+
+  // Backward compatibility for older projects without a category.
+  const productName = normalize(project.productName);
+
+    return Boolean(
+      productName &&
+        manufacturerTerms.some(
+          (term) =>
+            productName.includes(term) ||
+            term.includes(productName)
+        )
+    );
+  }
+
 function calculateManufacturerMatch(project, manufacturer) {
   let score = 0;
   const reasons = [];
@@ -111,35 +195,17 @@ function calculateManufacturerMatch(project, manufacturer) {
   }
 
   // 3. Product category or capability: 20 points
-  const productName = normalize(project.productName);
-
-  const categories = (manufacturer.productCategories || [])
-    .map(normalize)
-    .filter(Boolean);
-
-  const capabilities = (manufacturer.capabilities || [])
-    .map(normalize)
-    .filter(Boolean);
-
-  const categoryMatch = categories.some(
-    (category) =>
-      productName.includes(category) ||
-      category.includes(productName)
+if (productCapabilityMatches(project, manufacturer)) {
+  scoreBreakdown.productCapability = 20;
+  score += 20;
+  reasons.push(
+    project.productCategory
+      ? `Manufacturer supports ${project.productCategory}`
+      : 'Product category or capability matches'
   );
-
-  const capabilityMatch = capabilities.some(
-    (capability) =>
-      productName.includes(capability) ||
-      capability.includes(productName)
-  );
-
-  if (productName && (categoryMatch || capabilityMatch)) {
-    scoreBreakdown.productCapability = 20;
-    score += 20;
-    reasons.push('Product category or capability matches');
-  } else {
-    missing.push('Product capability not confirmed');
-  }
+} else {
+  missing.push('Product capability not confirmed');
+}
 
   // 4. Order quantity: 15 points
   const minimumOrder = manufacturer.minimumOrderQuantity;

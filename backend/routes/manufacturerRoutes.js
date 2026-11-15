@@ -5,7 +5,7 @@ const router = express.Router();
 
 const Manufacturer = require('../models/Manufacturer');
 const Project = require('../models/Project');
-
+const customerAuth = require('../middleware/customerAuth');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
@@ -177,7 +177,7 @@ router.get("/", async (req, res) => {
 });
 
 // GET: Match a project with suitable manufacturers
-router.get('/match/:projectId', async (req, res) => {
+router.get('/match/:projectId', customerAuth, async (req, res) => {
   try {
     const { projectId } = req.params;
 
@@ -188,7 +188,10 @@ router.get('/match/:projectId', async (req, res) => {
       });
     }
 
-    const project = await Project.findById(projectId);
+    const project = await Project.findOne({
+      _id: projectId,
+      customer: req.customer.customerId,
+    });
 
     if (!project) {
       return res.status(404).json({
@@ -211,6 +214,7 @@ router.get('/match/:projectId', async (req, res) => {
       project: {
         id: project._id,
         productName: project.productName,
+        productCategory: project.productCategory,
         quantity: project.quantity,
         material: project.material,
         process: project.process,

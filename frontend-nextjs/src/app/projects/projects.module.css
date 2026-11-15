@@ -193,35 +193,61 @@
   border-color: #5379a9;
 }
 
+
 .tableWrap {
   width: 100%;
+  max-width: 100%;
   overflow-x: auto;
 }
 
 .table {
   width: 100%;
-  min-width: 1050px;
+  min-width: 0;
+  table-layout: fixed;
   border-collapse: collapse;
   text-align: left;
 }
 
+/* Distribute the available width across all seven columns */
+.table th:nth-child(1),
+.table td:nth-child(1) { width: 22%; }
+
+.table th:nth-child(2),
+.table td:nth-child(2) { width: 12%; }
+
+.table th:nth-child(3),
+.table td:nth-child(3) { width: 12%; }
+
+.table th:nth-child(4),
+.table td:nth-child(4) { width: 10%; }
+
+.table th:nth-child(5),
+.table td:nth-child(5) { width: 10%; }
+
+.table th:nth-child(6),
+.table td:nth-child(6) { width: 14%; }
+
+.table th:nth-child(7),
+.table td:nth-child(7) { width: 20%; }
+
 .table th {
-  padding: 16px 19px;
+  padding: 14px 10px;
   color: #8195b0;
   background: #142238;
   border-bottom: 1px solid #293b54;
   font-size: 10px;
   font-weight: 800;
-  letter-spacing: 1px;
+  letter-spacing: 0.7px;
   white-space: nowrap;
 }
 
 .table td {
-  padding: 18px 19px;
+  padding: 14px 10px;
   color: #bdc9d9;
   border-bottom: 1px solid #1f2e43;
   font-size: 12px;
   vertical-align: middle;
+  overflow-wrap: anywhere;
 }
 
 .table tbody tr {
@@ -241,23 +267,54 @@
   color: #f3f6fc;
   font-size: 14px;
   font-weight: 750;
-  margin-bottom: 10px;
-  line-height: 1.5;
+  margin-bottom: 6px;
+  line-height: 1.4;
 }
 
-.subtext {
+.productInfo {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.productInfo strong {
   display: block;
+  width: 100%;
+  color: #f3f6fc;
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1.4;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.subtext,
+.productInfo .subtext {
+  display: -webkit-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   color: #91a2b9;
-  font-size: 12px;
-  line-height: 1.7;
-  max-width: 220px;
-  margin-top: 4px;
+  font-size: 11px;
+  line-height: 1.45;
+  margin: 0;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
 
 .status {
   display: inline-flex;
   align-items: center;
-  padding: 6px 11px;
+  padding: 6px 9px;
   color: #fcd34d;
   background: rgba(245, 158, 11, 0.11);
   border: 1px solid rgba(245, 158, 11, 0.27);
@@ -267,37 +324,14 @@
   white-space: nowrap;
 }
 
-.productInfo {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
-  min-width: 150px;
-  padding: 0;
-  background: transparent;
-}
 
-.productInfo strong {
-  display: block;
-  color: #f3f6fc;
-  font-size: 14px;
-  font-weight: 750;
-  line-height: 1.5;
-  margin: 0;
-}
-
-.productInfo .subtext {
-  display: block;
-  color: #91a2b9;
-  font-size: 12px;
-  line-height: 1.7;
-  margin: 0;
-}
-
-.table th:last-child,
-.table td:last-child {
-  min-width: 245px;
-  width: 245px;
+/* Keep long CAD filenames inside their column */
+.table td:nth-child(6) {
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal;
+  line-height: 1.45;
 }
 
 .table td:last-child {
@@ -306,25 +340,25 @@
 
 .actions {
   display: flex;
-  flex-direction: row;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
-  min-width: 215px;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
 }
 
 .actionButton {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 62px;
-  min-height: 36px;
-  padding: 8px 10px;
+  min-width: 0;
+  min-height: 32px;
+  padding: 7px 8px;
   color: #bfdbfe;
   background: #1b3452;
   border: 1px solid #345579;
   border-radius: 7px;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
@@ -530,7 +564,7 @@
   }
 
   .table {
-    min-width: 1050px;
+    min-width: 0;
   }
 
   .formRow {
@@ -542,7 +576,7 @@
   }
 
   .actions {
-    min-width: 215px;
+    min-width: 0;
   }
 }
 

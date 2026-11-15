@@ -7,6 +7,7 @@ const router = express.Router();
 const Project = require('../models/Project');
 const RFQ = require('../models/RFQ');
 const adminAuth = require('../middleware/adminAuth');
+const customerAuth = require('../middleware/customerAuth');
 const cloudinary = require('../config/cloudinary');
 
 const PROJECT_STATUSES = [
@@ -20,6 +21,15 @@ function validateProjectFields(body, isCreate = false) {
   if (isCreate || body.productName !== undefined) {
     if (typeof body.productName !== 'string' || !body.productName.trim()) {
       return 'Product name is required.';
+    }
+  }
+
+  if (isCreate || body.productCategory !== undefined) {
+    if (
+      typeof body.productCategory !== 'string' ||
+      !body.productCategory.trim()
+    ) {
+      return 'Product category is required.';
     }
   }
 
@@ -65,6 +75,101 @@ const upload = multer({
       cb(new Error('Only STEP, STP, IGES, IGS and PDF files are allowed.'));
     }
   },
+});
+
+// CUSTOMER ROUTES
+
+// GET: Retrieve projects belonging only to the logged-in customer.
+router.get('/mine', customerAuth, async (req, res) => {
+  try {
+    const projects = await Project.find({
+      customer: req.customer.customerId,
+    }).sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      count: projects.length,
+      projects,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve your projects.',
+    });
+  }
+});
+
+// POST: Create a project for the logged-in customer.
+router.post('/mine', customerAuth, upload.single('cadFile'), async (req, res) => {
+  let uploadedFile = null;
+
+  try {
+    const {
+      productName,
+      productCategory,
+      description,
+      quantity,
+      material,
+      process,
+    } = req.body;
+
+    const validationError = validateProjectFields(req.body, true);
+
+    if (validationError) {
+      return res.status(400).json({
+        success: false,
+        message: validationError,
+      });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please upload a CAD file or specification sheet.',
+      });
+    }
+
+    uploadedFile = await uploadToCloudinary(req.file);
+
+    const project = await Project.create({
+      customer: req.customer.customerId,
+      productName,
+      productCategory,
+      description,
+      quantity,
+      material,
+      process,
+      cadFile: {
+        originalName: req.file.originalname,
+        filePath: uploadedFile.secure_url,
+        fileType: path.extname(req.file.originalname).toLowerCase(),
+        publicId: uploadedFile.public_id,
+      },
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: 'Your project was created successfully.',
+      project,
+    });
+  } catch (error) {
+    if (uploadedFile?.public_id) {
+      try {
+        await cloudinary.uploader.destroy(uploadedFile.public_id, {
+          resource_type: 'raw',
+          type: 'private',
+        });
+      } catch (cleanupError) {
+        console.error('Customer CAD cleanup failed:', cleanupError.message);
+      }
+    }
+
+    return res.status(400).json({
+      success: false,
+      message: 'Failed to create your project.',
+      error: error.message,
+    });
+  }
 });
 
 // Upload a CAD file to Cloudinary.
@@ -133,7 +238,7 @@ router.get('/:id/cad-file', adminAuth, async (req, res) => {
 });
 
 // GET: Retrieve all projects.
-router.get('/', async (req, res) => {
+router.get('/', adminAuth, async (req, res) => {
   try {
     const projects = await Project.find().sort({ createdAt: -1 });
 
@@ -185,13 +290,12 @@ router.put('/:id', adminAuth, upload.single('cadFile'), async (req, res) => {
 
     const allowedFields = [
       'productName',
+      'productCategory',
       'description',
       'quantity',
       'material',
       'process',
-      'status',
     ];
-
     for (const field of allowedFields) {
       if (req.body[field] !== undefined) {
         project[field] = req.body[field];
@@ -347,6 +451,189 @@ router.post('/', adminAuth, upload.single('cadFile'), async (req, res) => {
   }
 });
 
+// PUT: Edit only a project owned by the logged-in customer.
+router.put('/mine/:id', customerAuth, upload.single('cadFile'), async (req, res) => {
+  let newlyUploadedFile = null;
+
+  try {
+    const { id } = req.params;
+
+    if (!/^[0-9a-fA-F]{24}$/.test(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid project ID.',
+      });
+    }
+
+    const validationError = validateProjectFields(req.body);
+
+    if (validationError) {
+      return res.status(400).json({
+        success: false,
+        message: validationError,
+      });
+    }
+
+    const project = await Project.findOne({
+      _id: id,
+      customer: req.customer.customerId,
+    });
+
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        message: 'Your project was not found.',
+      });
+    }
+
+    const allowedFields = [
+      'productName',
+      'productCategory',
+      'description',
+      'quantity',
+      'material',
+      'process',
+    ];
+
+    for (const field of allowedFields) {
+      if (req.body[field] !== undefined) {
+        project[field] = req.body[field];
+      }
+    }
+
+    const previousCadPublicId = project.cadFile?.publicId;
+
+    if (req.file) {
+      newlyUploadedFile = await uploadToCloudinary(req.file);
+
+      project.cadFile = {
+        originalName: req.file.originalname,
+        filePath: newlyUploadedFile.secure_url,
+        fileType: path.extname(req.file.originalname).toLowerCase(),
+        publicId: newlyUploadedFile.public_id,
+      };
+    }
+
+    await project.save();
+
+    if (newlyUploadedFile && previousCadPublicId) {
+      try {
+        await cloudinary.uploader.destroy(previousCadPublicId, {
+          resource_type: 'raw',
+          type: 'private',
+        });
+      } catch (cleanupError) {
+        console.error('Old customer CAD cleanup failed:', cleanupError.message);
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Your project was updated successfully.',
+      project,
+    });
+  } catch (error) {
+    if (newlyUploadedFile?.public_id) {
+      try {
+        await cloudinary.uploader.destroy(newlyUploadedFile.public_id, {
+          resource_type: 'raw',
+          type: 'private',
+        });
+      } catch (cleanupError) {
+        console.error('New customer CAD cleanup failed:', cleanupError.message);
+      }
+    }
+
+    return res.status(400).json({
+      success: false,
+      message: 'Failed to update your project.',
+    });
+  }
+});
+
+// DELETE: Remove only a project owned by the logged-in customer.
+router.delete('/mine/:id', customerAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!/^[0-9a-fA-F]{24}$/.test(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid project ID.',
+      });
+    }
+
+    const project = await Project.findOne({
+      _id: id,
+      customer: req.customer.customerId,
+    });
+
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        message: 'Project not found.',
+      });
+    }
+
+    const linkedRFQ = await RFQ.exists({ project: project._id });
+
+    if (linkedRFQ) {
+      return res.status(409).json({
+        success: false,
+        message: 'This project cannot be deleted because it is linked to an RFQ.',
+      });
+    }
+
+    // Delete the owned project first, preserving its CAD file if DB deletion fails.
+    const deletedProject = await Project.findOneAndDelete({
+      _id: project._id,
+      customer: req.customer.customerId,
+    });
+
+    if (!deletedProject) {
+      return res.status(404).json({
+        success: false,
+        message: 'Project not found or no longer belongs to your account.',
+      });
+    }
+
+    // Clean up the private CAD asset after the database deletion succeeds.
+    if (deletedProject.cadFile?.publicId) {
+      try {
+        const result = await cloudinary.uploader.destroy(
+          deletedProject.cadFile.publicId,
+          {
+            resource_type: 'raw',
+            type: 'private',
+          }
+        );
+
+        if (!result || !['ok', 'not found'].includes(result.result)) {
+          console.error(
+            'Customer CAD cleanup was unsuccessful:',
+            deletedProject.cadFile.publicId,
+            result
+          );
+        }
+      } catch (cleanupError) {
+        console.error('Customer CAD cleanup failed:', cleanupError.message);
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Your project was deleted successfully.',
+    });
+  } catch (error) {
+    console.error('Customer project deletion failed:', error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to delete your project.',
+    });
+  }
+});
+
 // DELETE: Remove a project only when no RFQ references it.
 router.delete('/:id', adminAuth, async (req, res) => {
   try {
@@ -377,24 +664,38 @@ router.delete('/:id', adminAuth, async (req, res) => {
       });
     }
 
-    if (project.cadFile?.publicId) {
-      const result = await cloudinary.uploader.destroy(
-        project.cadFile.publicId,
-        {
-          resource_type: 'raw',
-          type: 'private',
-        }
-      );
+    // Delete the database record first. Keep the CAD asset if this fails.
+    const deletedProject = await Project.findByIdAndDelete(id);
 
-      if (!['ok', 'not found'].includes(result.result)) {
-        return res.status(502).json({
-          success: false,
-          message: "Could not remove the project CAD file. Project was not deleted.",
-        });
-      }
+    if (!deletedProject) {
+      return res.status(404).json({
+        success: false,
+        message: 'Project not found.',
+      });
     }
 
-    await Project.findByIdAndDelete(id);
+    // Clean up the private CAD asset after the database deletion succeeds.
+    if (deletedProject.cadFile?.publicId) {
+      try {
+        const result = await cloudinary.uploader.destroy(
+          deletedProject.cadFile.publicId,
+          {
+            resource_type: 'raw',
+            type: 'private',
+          }
+        );
+
+        if (!result || !['ok', 'not found'].includes(result.result)) {
+          console.error(
+            'Admin CAD cleanup was unsuccessful:',
+            deletedProject.cadFile.publicId,
+            result
+          );
+        }
+      } catch (cleanupError) {
+        console.error('Admin CAD cleanup failed:', cleanupError.message);
+      }
+    }
 
     return res.status(200).json({
       success: true,
@@ -406,6 +707,50 @@ router.delete('/:id', adminAuth, async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to delete project.',
+    });
+  }
+});
+
+
+// GET: Generate a secure CAD download link for a customer's own project.
+router.get('/mine/:id/cad-file', customerAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!/^[0-9a-fA-F]{24}$/.test(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid project ID.',
+      });
+    }
+
+    const project = await Project.findOne({
+      _id: id,
+      customer: req.customer.customerId,
+    });
+
+    if (!project || !project.cadFile?.publicId) {
+      return res.status(404).json({
+        success: false,
+        message: 'Project or CAD file not found.',
+      });
+    }
+
+    const url = cloudinary.utils.private_download_url(
+      project.cadFile.publicId,
+      project.cadFile.fileType.replace('.', ''),
+      {
+        resource_type: 'raw',
+        type: 'private',
+        expires_at: Math.floor(Date.now() / 1000) + 3600,
+      }
+    );
+
+    return res.json({ success: true, url });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Unable to generate CAD download link.',
     });
   }
 });

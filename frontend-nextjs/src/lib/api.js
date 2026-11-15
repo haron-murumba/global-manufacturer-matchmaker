@@ -29,8 +29,12 @@ export async function apiRequest(endpoint, options = {}) {
 }
 
 // Projects
-export const getProjects = () =>
-  apiRequest("/api/projects");
+export const getProjects = (token) =>
+  apiRequest("/api/projects", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
 
 export const createProject = (formData, token) =>
   apiRequest("/api/projects", {
@@ -75,8 +79,12 @@ export const registerManufacturer = (manufacturer) =>
     body: JSON.stringify(manufacturer),
   });
 
-export const getManufacturerMatches = (projectId) =>
-  apiRequest(`/api/manufacturers/match/${projectId}`);
+export const getManufacturerMatches = (projectId, token) =>
+  apiRequest(`/api/manufacturers/match/${projectId}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
 
 // Administrator
 export const adminLogin = (email, password) =>
@@ -134,12 +142,6 @@ export const awardRFQ = (rfqId, manufacturerId, token) =>
       Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({ manufacturerId }),
-  });
-
-export const updateQuotation = (rfqId, manufacturerId, quotationData) =>
-  apiRequest(`/api/rfqs/${rfqId}/quotations/${manufacturerId}`, {
-    method: "PATCH",
-    body: JSON.stringify(quotationData),
   });
 
   // Supplier authentication
@@ -202,6 +204,67 @@ export const generateManufacturerActivationToken = (manufacturerId, token) =>
 
   export const getManufacturersAwaitingActivation = (token) =>
   apiRequest("/api/admin/manufacturers/awaiting-activation", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  // Customer authentication
+export const customerRegister = (customerData) =>
+  apiRequest("/api/customers/register", {
+    method: "POST",
+    body: JSON.stringify(customerData),
+  });
+
+export const customerLogin = (email, password) =>
+  apiRequest("/api/customers/login", {
+    method: "POST",
+    body: JSON.stringify({ email, password }),
+  });
+
+export const getCustomerProfile = (token) =>
+  apiRequest("/api/customers/me", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+// Customer projects
+export const getMyProjects = (token) =>
+  apiRequest("/api/projects/mine", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+export const createCustomerProject = (formData, token) =>
+  apiRequest("/api/projects/mine", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: formData,
+  });
+
+export const updateCustomerProject = (id, formData, token) =>
+  apiRequest(`/api/projects/mine/${id}`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: formData,
+  });
+
+export const deleteCustomerProject = (id, token) =>
+  apiRequest(`/api/projects/mine/${id}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+export const getCustomerCadDownloadLink = (id, token) =>
+  apiRequest(`/api/projects/mine/${id}/cad-file`, {
     headers: {
       Authorization: `Bearer ${token}`,
     },

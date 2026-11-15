@@ -1,20 +1,22 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
-  getProjects,
-  createProject,
-  updateProject,
-  deleteProject,
-  getCadDownloadLink,
+  getMyProjects,
+  createCustomerProject,
+  updateCustomerProject,
+  deleteCustomerProject,
+  getCustomerCadDownloadLink,
 } from "@/lib/api";
-import styles from "./projects.module.css";
 
+import styles from "./projects.module.css";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 const emptyForm = {
   productName: "",
+  productCategory: "",
   description: "",
   quantity: "",
   material: "",
@@ -23,6 +25,7 @@ const emptyForm = {
 };
 
 export default function ProjectsPage() {
+  const router = useRouter();
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -35,22 +38,27 @@ export default function ProjectsPage() {
   const [downloadingId, setDownloadingId] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
 
-  async function loadProjects() {
-    try {
-      setLoading(true);
-      setError("");
-      const result = await getProjects();
-      setProjects(result.projects || []);
-    } catch (err) {
-      setError(err.message || "Could not load projects.");
-    } finally {
-      setLoading(false);
-    }
+  const loadProjects = useCallback(async () => {
+  const token = localStorage.getItem("customerToken");
+
+  if (!token) {
+    setLoading(false);
+    router.push("/login");
+    return;
   }
 
-  useEffect(() => {
-    loadProjects();
-  }, []);
+  try {
+    setLoading(true);
+    setError("");
+
+    const result = await getMyProjects(token);
+    setProjects(result.projects || []);
+  } catch (err) {
+    setError(err.message || "Could not load projects.");
+  } finally {
+    setLoading(false);
+  }
+}, [router]);
 
   function openCreateForm() {
     setForm(emptyForm);
@@ -64,6 +72,7 @@ export default function ProjectsPage() {
   function openEditForm(project) {
     setForm({
       productName: project.productName || "",
+      productCategory: project.productCategory || "",
       description: project.description || "",
       quantity: project.quantity || "",
       material: project.material || "",
@@ -90,21 +99,28 @@ export default function ProjectsPage() {
   }
 
 
-    async function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
+
     setError("");
     setSuccess("");
 
+    if (!form.productName.trim()) {
+      setError("Product name is required.");
+      return;
+    }
+
     if (!editingId && !cadFile) {
-      setError("Please select a CAD or specification file.");
+      setError("Please upload a CAD file.");
       return;
     }
 
     const data = new FormData();
 
     data.append("productName", form.productName.trim());
+    data.append("productCategory", form.productCategory);
     data.append("description", form.description.trim());
-    data.append("quantity", String(form.quantity));
+    data.append("quantity", form.quantity);
     data.append("material", form.material.trim());
     data.append("process", form.process.trim());
     data.append("status", form.status);
@@ -114,13 +130,20 @@ export default function ProjectsPage() {
     }
 
     try {
+      const token = localStorage.getItem("customerToken");
+
+      if (!token) {
+        router.push("/login");
+        return;
+      }
+
       setSaving(true);
 
       if (editingId) {
-        await updateProject(editingId, data, token);
+        await updateCustomerProject(editingId, data, token);
         setSuccess("Project updated successfully.");
       } else {
-        await createProject(data, token);
+        await createCustomerProject(data, token);
         setSuccess("Project created successfully.");
       }
 
@@ -138,21 +161,25 @@ export default function ProjectsPage() {
       setError("");
       setDownloadingId(project._id);
 
-    const token = localStorage.getItem("adminToken");
+      const token = localStorage.getItem("customerToken");
 
       if (!token) {
-        throw new Error("Please log in as an administrator before downloading CAD files.");
+        router.push("/login");
+        return;
       }
 
-    const result = await getCadDownloadLink(project._id, token);
+      const result = await getCustomerCadDownloadLink(
+        project._id,
+        token
+      );
 
       if (!result.url) {
-        throw new Error("The server did not return a download link.");
+        throw new Error("Could not generate the CAD download link.");
       }
 
       window.open(result.url, "_blank", "noopener,noreferrer");
     } catch (err) {
-      setError(err.message || "Unable to download the project file.");
+      setError(err.message || "Unable to download CAD file.");
     } finally {
       setDownloadingId(null);
     }
@@ -170,13 +197,14 @@ export default function ProjectsPage() {
       setSuccess("");
       setDeletingId(project._id);
 
-      const token = localStorage.getItem("adminToken");
+      const token = localStorage.getItem("customerToken");
 
       if (!token) {
-        throw new Error("Please log in as an administrator before deleting a project.");
+        router.push("/login");
+        return;
       }
 
-      const result = await deleteProject(project._id, token);
+      const result = await deleteCustomerProject(project._id, token);
 
       setSuccess(result.message || "Project deleted successfully.");
       await loadProjects();
@@ -187,11 +215,19 @@ export default function ProjectsPage() {
     }
   }
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      loadProjects();
+    }, 0);
+
+    return () => clearTimeout(timer);
+  }, [loadProjects]);
+
 
 return (
   <main className={styles.page}>
     <div className={styles.pageHeader}>
-      <Link href="/" className={styles.backLink}>
+      <Link href="/dashboard" className={styles.backLink}>
         ← Back to Dashboard
       </Link>
     </div>
@@ -207,9 +243,7 @@ return (
 
       <button
         className={styles.primaryButton}
-        onClick={() => {
-          window.location.href = "/projects/new";
-        }}
+        onClick={() => router.push("/projects/new")}
       >
         + Create New Project
       </button>
@@ -379,6 +413,26 @@ return (
                 placeholder="e.g. Smart Water Bottle"
                 required
               />
+            </label>
+
+            <label>
+              Product category *
+              <select
+                name="productCategory"
+                value={form.productCategory}
+                onChange={handleChange}
+                required
+              >
+                <option value="">Select a product category</option>
+                <option value="Smart Devices">Smart Devices</option>
+                <option value="Consumer Electronics">Consumer Electronics</option>
+                <option value="Bottles & Drinkware">Bottles & Drinkware</option>
+                <option value="Plastic Products">Plastic Products</option>
+                <option value="Industrial Components">Industrial Components</option>
+                <option value="Automotive Products">Automotive Products</option>
+                <option value="Laboratory Equipment">Laboratory Equipment</option>
+                <option value="Other">Other</option>
+              </select>
             </label>
 
             <label>

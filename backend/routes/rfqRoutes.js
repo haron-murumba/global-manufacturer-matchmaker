@@ -207,6 +207,7 @@ router.get('/supplier/my-rfqs', manufacturerAuth, async (req, res) => {
         deliveryDeadline: rfq.deliveryDeadline,
         quotationDeadline: rfq.quotationDeadline,
         status: rfq.status,
+        isAwarded: Boolean(rfq.selectedManufacturer),
         project: rfq.project,
         quotation,
       };

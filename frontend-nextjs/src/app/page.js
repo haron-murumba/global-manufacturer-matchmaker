@@ -1,639 +1,240 @@
-
-"use client";
-
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import {
-  getProjects,
-  getManufacturers,
-  getManufacturerMatches,
-  getRFQs,
-} from "@/lib/api";
+import Image from "next/image";
+import styles from "./landing.module.css";
 
-const navigation = [
+const steps = [
   {
-    section: "WORKSPACE",
-    items: [
-      "Dashboard",
-      "My Projects",
-      "Manufacturers",
-      "RFQ Manager",
-      "Response Tracking",
-    ],
+    number: "01",
+    icon: "▤",
+    title: "Submit Your Product",
+    description:
+      "Upload your product specifications and CAD files. Tell us about your materials, processes and production requirements.",
   },
   {
-    section: "MANAGEMENT",
-    items: ["Admin Dashboard", "Settings"],
-  },
-];
-
-const icons = ["▦", "▤", "◈", "↗", "◷", "♙", "⚙"];
-
-const routes = {
-  Dashboard: "/",
-  "My Projects": "/projects",
-  Manufacturers: "/manufacturers",
-  "RFQ Manager": "/rfq",
-  "Response Tracking": "/response-tracking",
-  "Admin Dashboard": "/admin",
-  Settings: "/",
-  "Help Center": "/",
-};
-
-function formatQuantity(quantity) {
-  return `${Number(quantity || 0).toLocaleString()} units`;
-}
-
-function formatDate(date) {
-  if (!date) return "Date unavailable";
-
-  return new Date(date).toLocaleDateString(undefined, {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-export default function Home() {
-  const [active, setActive] = useState("Dashboard");
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-  const [showProfile, setShowProfile] = useState(false);
-
-  const [projects, setProjects] = useState([]);
-  const [manufacturers, setManufacturers] = useState([]);
-  const [matches, setMatches] = useState([]);
-  const [rfqs, setRfqs] = useState([]);
-
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [matchError, setMatchError] = useState("");
-
-  useEffect(() => {
-    async function loadDashboard() {
-      try {
-        setLoading(true);
-        setError("");
-
-
-  const [projectsResult, manufacturersResult] = await Promise.all([
-    getProjects(),
-    getManufacturers(),
-  ]);
-
-  const projectRecords = projectsResult.projects || [];
-  const manufacturerRecords =
-    manufacturersResult.manufacturers || [];
-
-  setProjects(projectRecords);
-  setManufacturers(manufacturerRecords);
-
-  // Load RFQs only when an administrator is logged in.
-  setRfqs([]);
-
-  const token = localStorage.getItem("adminToken");
-
-  if (token) {
-    try {
-      const rfqResult = await getRFQs(token);
-      setRfqs(rfqResult.rfqs || []);
-    } catch (rfqError) {
-      console.error("Unable to load administrator RFQs:", rfqError);
-
-      setRfqs([]);
-
-      localStorage.removeItem("adminToken");
-    }
-  }
-
-
-        if (projectRecords.length > 0) {
-          try {
-            const matchingResult = await getManufacturerMatches(
-              projectRecords[0]._id
-            );
-
-            setMatches(matchingResult.matches || []);
-          } catch (matchErr) {
-            setMatchError(matchErr.message);
-          }
-        }
-      } catch (err) {
-        setError(err.message || "Unable to load dashboard data.");
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadDashboard();
-  }, []);
-
-  const latestProject = projects[0];
-
-  const verifiedManufacturers = manufacturers.filter(
-    (manufacturer) => manufacturer.verificationStatus === "Verified"
-  );
-
-  const pendingRFQs = rfqs.filter(
-    (rfq) => rfq.status === "Sent"
-  );
-
-  const bestMatch = matches.reduce(
-    (best, current) =>
-      !best || current.matchScore > best.matchScore
-        ? current
-        : best,
-    null
-  );
-
-  const stats = [
-  {
-    label: "Total Projects",
-    value: loading ? "—" : projects.length,
-    detail: "Projects in your database",
-    icon: "▦",
-    href: "/projects",
+    number: "02",
+    icon: "◎",
+    title: "Find Matching Manufacturers",
+    description:
+      "GMM evaluates your requirements and connects your project with manufacturers that match your production needs.",
   },
   {
-    label: "Verified Manufacturers",
-    value: loading ? "—" : verifiedManufacturers.length,
-    detail: "Approved suppliers",
-    icon: "◈",
-    href: "/manufacturers",
-  },
-  {
-    label: "Latest Project Matches",
-    value: loading ? "—" : matches.length,
-    detail: "Manufacturers matched",
-    icon: "✓",
-    href: "/projects",
-  },
-  {
-    label: "Pending RFQs",
-    value: loading ? "—" : pendingRFQs.length,
-    detail: "RFQs awaiting supplier responses",
+    number: "03",
     icon: "↗",
-    href: "/rfq",
+    title: "Compare Quotes & Choose",
+    description:
+      "Request quotations, review supplier responses and compare offers to make informed sourcing decisions.",
   },
 ];
 
+const benefits = [
+  {
+    icon: "✓",
+    title: "Verified Manufacturers",
+    description: "Connect with manufacturers reviewed through our verification process.",
+  },
+  {
+    icon: "⌕",
+    title: "Smarter Matching",
+    description: "Find potential manufacturing partners based on your project requirements.",
+  },
+  {
+    icon: "⇄",
+    title: "Centralized RFQs",
+    description: "Manage quotation requests and supplier responses in one workspace.",
+  },
+  {
+    icon: "◷",
+    title: "Clearer Decisions",
+    description: "Compare supplier quotations and make more informed sourcing choices.",
+  },
+];
+
+const faqs = [
+  {
+    question: "What is Global Manufacturer Matchmaker?",
+    answer:
+      "GMM helps businesses find potential manufacturing partners by matching product requirements with manufacturer capabilities.",
+  },
+  {
+    question: "How do I find a suitable manufacturer?",
+    answer:
+      "Create a sourcing project, provide your product specifications, material, manufacturing process and quantity. GMM evaluates manufacturers against your requirements.",
+  },
+  {
+    question: "Can I upload CAD files?",
+    answer:
+      "Yes. You can attach supported STEP, STP, IGES, IGS and PDF files to your sourcing projects.",
+  },
+  {
+    question: "Are manufacturers verified?",
+    answer:
+      "Manufacturers can register on the platform and undergo an administrator review before receiving verified status.",
+  },
+  {
+    question: "Can I request and compare quotations?",
+    answer:
+      "GMM is designed to support RFQ management and quotation comparison. These workflows are part of the platform's ongoing development.",
+  },
+  {
+    question: "How do manufacturers join GMM?",
+    answer:
+      "Manufacturers can register through the Manufacturer Portal and submit their business and production details for review.",
+  },
+];
+
+export default function HomePage() {
   return (
-    <div className="gmm-layout">
-      <aside className={`sidebar ${menuOpen ? "sidebar-open" : ""}`}>
-        <div className="brand">
-          <div className="brand-logo">G</div>
-          <div>
-            <h2>GMM</h2>
-            <span>MANUFACTURER MATCHMAKER</span>
-          </div>
-        </div>
+    <main className={styles.page} id="home">
+      <header className={styles.header}>
+        <Link href="/" className={styles.brand} aria-label="GMM Home">
+          <span className={styles.brandIcon}>G</span>
+          <span>
+            <span className={styles.brandName}>GMM</span>
+            <span className={styles.brandSub}>
+              GLOBAL MANUFACTURER MATCHMAKER
+            </span>
+          </span>
+        </Link>
 
-        <div className="workspace-label">WORKSPACE</div>
-
-        <div className="workspace-switch">
-          <span className="workspace-icon">G</span>
-          <span>Global Manufacturing</span>
-          <span className="switch-arrow">⌄</span>
-        </div>
-
-        <nav className="navigation">
-          {navigation.map((group, groupIndex) => (
-            <div key={group.section}>
-              <p className="nav-section">{group.section}</p>
-
-              {group.items.map((item, index) => {
-                const iconIndex =
-                  navigation
-                    .slice(0, groupIndex)
-                    .reduce(
-                      (total, current) =>
-                        total + current.items.length,
-                      0
-                    ) + index;
-
-                return (
-                  <Link
-                    key={item}
-                    href={routes[item]}
-                    className={`nav-item ${
-                      active === item ? "active" : ""
-                    }`}
-                    onClick={() => {
-                      setActive(item);
-                      setMenuOpen(false);
-                    }}
-                  >
-                    <span className="nav-icon">
-                      {icons[iconIndex]}
-                    </span>
-                    {item}
-                  </Link>
-                );
-              })}
-            </div>
-          ))}
+        <nav className={styles.nav} aria-label="Main navigation">
+          <a href="#home">Home</a>
+          <a href="#how-it-works">How It Works</a>
+          <Link href="/manufacturers">Manufacturers</Link>
+          <a href="#about">About</a>
+          <a href="#faq">FAQ</a>
         </nav>
 
-        <div className="sidebar-bottom">
-          <div className="help-card">
-            <div className="help-icon">?</div>
-            <strong>Need assistance?</strong>
-            <p>Get help with your manufacturing journey.</p>
-            <button onClick={() => setActive("Help Center")}>
-              Visit Help Center ↗
-            </button>
-          </div>
-
-          <div className="user-profile">
-            <div className="avatar">HM</div>
-            <div className="user-details">
-              <strong>Project Administrator</strong>
-              <span>Administrator</span>
-            </div>
-
-            <div className="profile-menu-wrapper">
-          <button
-            className="profile-menu"
-            aria-label="Open account menu"
-            aria-expanded={profileMenuOpen}
-            onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-          >
-            •••
-          </button>
-
-          {profileMenuOpen && (
-            <div className="profile-dropdown">
-              <div className="dropdown-heading">
-                <strong>Project Administrator</strong>
-                <span>Administrator account</span>
-              </div>
-
-              <button
-                onClick={() => {
-                  setShowProfile(!showProfile);
-                  setProfileMenuOpen(false);
-                }}
-              >
-                <span>♙</span> My Profile
-              </button>
-
-              <button
-                onClick={() => {
-                  setProfileMenuOpen(false);
-                  window.location.href = "/settings";
-                }}
-              >
-                <span>⚙</span> Settings
-                <small>Coming soon</small>
-              </button>
-
-              <div className="dropdown-divider" />
-
-              <button
-                className="logout-option"
-                onClick={() => {
-                  localStorage.removeItem("adminToken");
-                  window.location.href = "/admin";
-                }}
-              >
-                <span>↪</span> Logout
-              </button>
-            </div>
-          )}
+        <div className={styles.headerActions}>
+          <Link href="/login" className={styles.signIn}>
+            Sign In
+          </Link>
+          <Link href="/register" className={styles.primaryButton}>
+            Get Started
+          </Link>
         </div>
+      </header>
 
-          </div>
-        </div>
-      </aside>
+      <section className={styles.hero}>
+        <div className={styles.heroContent}>
+          <span className={styles.eyebrow}>
+            YOUR GLOBAL SOURCING PARTNER
+          </span>
 
-      {menuOpen && (
-        <button
-          className="mobile-overlay"
-          aria-label="Close navigation"
-          onClick={() => setMenuOpen(false)}
-        />
-      )}
+          <h1 className={styles.heroTitle}>
+            Connect.
+            <span>Source. Grow.</span>
+          </h1>
 
-      <main className="main-content">
-        <header className="topbar">
-          <div className="topbar-left">
-            <button
-              className="mobile-menu"
-              onClick={() => setMenuOpen(!menuOpen)}
-              aria-label="Toggle navigation"
-            >
-              ☰
-            </button>
+          <p className={styles.heroDescription}>
+            Find the right manufacturing partners for your products.
+            Match your requirements with manufacturers, manage RFQs and
+            compare quotations — all in one place.
+          </p>
 
-            <div className="breadcrumb">
-              Workspace <span>/</span> <strong>{active}</strong>
-            </div>
-          </div>
-
-          <div className="topbar-right">
-            <span className="system-status">
-              <i /> System operational
-            </span>
-            <button
-              className="notification-button"
-              aria-label="Notifications"
-            >
-              ♧
-              <span />
-            </button>
-            <div className="top-avatar">HM</div>
-          </div>
-        </header>
-
-        <div className="page-container">
-          <section className="welcome-section">
-            <div>
-              <p className="eyebrow">
-                GLOBAL MANUFACTURER MATCHMAKER
-              </p>
-
-              <h1>
-                {active === "Dashboard"
-                  ? "Welcome to GMM"
-                  : active}
-              </h1>
-
-              <p className="welcome-description">
-                Your manufacturing sourcing operations, all in one place.
-              </p>
-            </div>
-
-            <Link
-              href="/projects/new"
-              className="primary-button"
-            >
-              <span>＋</span> Create New Project
+          <div className={styles.heroActions}>
+            <Link href="/register" className={styles.primaryButton}>
+              Get Started Free →
             </Link>
-          </section>
-
-          {error && (
-            <div className="panel">
-              <strong>Dashboard data could not be loaded.</strong>
-              <p>{error}</p>
-              <p>Check your API connection and try refreshing the page.</p>
-            </div>
-          )}
-
-          <section className="stats-grid">
-            {stats.map((stat) => (
-              <Link
-                href={stat.href}
-                className="stat-card stat-card-link"
-                key={stat.label}
-              >
-                <div className="stat-top">
-                  <span>{stat.label}</span>
-                  <span className="stat-icon">{stat.icon}</span>
-                </div>
-
-                <h2>{stat.value}</h2>
-                <p>{stat.detail}</p>
-
-                <span className="stat-arrow">→</span>
-              </Link>
-            ))}
-          </section>
-
-          <section className="dashboard-grid">
-            <article className="panel projects-panel">
-              <div className="panel-heading">
-                <div>
-                  <h3>Recent Projects</h3>
-                  <p>
-                    Latest projects retrieved from your database.
-                  </p>
-                </div>
-
-                <Link
-                  href="/projects"
-                  className="text-button"
-                >
-                  View all →
-                </Link>
-              </div>
-
-              <div className="table-scroll">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>PROJECT</th>
-                      <th>PROCESS</th>
-                      <th>QUANTITY</th>
-                      <th>STATUS</th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {!loading && projects.length === 0 && (
-                      <tr>
-                        <td colSpan="4">No projects found.</td>
-                      </tr>
-                    )}
-
-                    {projects.slice(0, 5).map((project) => (
-                      <tr key={project._id}>
-                        <td>
-                          <strong>{project.productName}</strong>
-                          <span className="table-subtitle">
-                            {project.material ||
-                              "Material not specified"}
-                          </span>
-                        </td>
-
-                        <td>{project.process || "Not specified"}</td>
-
-                        <td>{formatQuantity(project.quantity)}</td>
-
-                        <td>
-                          <span
-                            className={`status status-${(
-                              project.status || "draft"
-                            )
-                              .toLowerCase()
-                              .replaceAll(" ", "-")}`}
-                          >
-                            {project.status || "Draft"}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </article>
-
-            <article className="panel matching-panel">
-              <div className="panel-heading">
-                <div>
-                  <h3>Matching Overview</h3>
-                  <p>
-                    Live manufacturer compatibility results
-                  </p>
-                </div>
-                <span className="overview-icon">◈</span>
-              </div>
-
-              {!loading && latestProject && (
-                <>
-                  <div className="match-score">
-                    <div className="score-number">
-                      {bestMatch ? bestMatch.matchScore : 0}
-                      <span>%</span>
-                    </div>
-
-                    <div>
-                      <strong>Best project match</strong>
-                      <p>{latestProject.productName}</p>
-                    </div>
-                  </div>
-
-                  <div className="progress-track">
-                    <div
-                      className="progress-fill"
-                      style={{
-                        width: `${
-                          bestMatch ? bestMatch.matchScore : 0
-                        }%`,
-                      }}
-                    />
-                  </div>
-
-                  {matches.length === 0 && (
-                    <p>
-                      No matching manufacturers found for this project.
-                    </p>
-                  )}
-
-                  {matches.slice(0, 3).map((match) => (
-                    <div
-                      className="match-details"
-                      key={match.manufacturerId}
-                    >
-                      <span>{match.companyName}</span>
-                      <strong>{match.matchScore}% match</strong>
-                    </div>
-                  ))}
-
-                  {matchError && <p>{matchError}</p>}
-                </>
-              )}
-
-              {!loading && !latestProject && (
-                <p>
-                  Create a project to see manufacturer matches.
-                </p>
-              )}
-
-              {loading && <p>Loading matching results...</p>}
-
-              <Link
-                href="/manufacturers"
-                className="outline-button"
-              >
-                Explore manufacturers →
-              </Link>
-            </article>
-          </section>
-
-          <section className="bottom-grid">
-
-            <article className="panel activity-panel">
-              <div className="panel-heading">
-                <div>
-                  <h3>Workspace Summary</h3>
-                  <p>Explore your live sourcing activities.</p>
-                </div>
-              </div>
-
-              <Link
-                href="/manufacturers"
-                className="activity-item activity-link"
-              >
-                <div className="activity-dot green">✓</div>
-                <div className="activity-content">
-                  <strong>Verified manufacturers</strong>
-                  <p>{manufacturers.length} approved suppliers available</p>
-                </div>
-                <span className="activity-arrow">→</span>
-              </Link>
-
-              <Link
-                href="/projects"
-                className="activity-item activity-link"
-              >
-                <div className="activity-dot blue">▤</div>
-                <div className="activity-content">
-                  <strong>Latest project</strong>
-                  <p>
-                    {latestProject
-                      ? latestProject.productName
-                      : "No projects available"}
-                  </p>
-                  {latestProject && (
-                    <span className="activity-date">
-                      {formatDate(latestProject.createdAt)}
-                    </span>
-                  )}
-                </div>
-                <span className="activity-arrow">→</span>
-              </Link>
-
-              <Link
-                href="/manufacturers"
-                className="activity-item activity-link"
-              >
-                <div className="activity-dot purple">◈</div>
-                <div className="activity-content">
-                  <strong>Latest matching results</strong>
-                  <p>
-                    {matches.length} manufacturers returned by matching API
-                  </p>
-                </div>
-                <span className="activity-arrow">→</span>
-              </Link>
-            </article>
-
-
-            <article className="panel quick-panel">
-              <h3>Quick Actions</h3>
-              <p>Move your sourcing process forward.</p>
-
-              <Link
-                href="/projects/new"
-                className="quick-action-link"
-              >
-                ＋ <span>Create a project</span> →
-              </Link>
-
-              <Link
-                href="/manufacturers"
-                className="quick-action-link"
-              >
-                ◈ <span>Find manufacturers</span> →
-              </Link>
-
-              <Link
-                href="/rfq"
-                className="quick-action-link"
-              >
-                ↗ <span>Manage RFQs</span> →
-              </Link>
-            </article>
-          </section>
-
-          <footer className="footer">
-            <span>© 2026 Global Manufacturer Matchmaker</span>
-            <span>
-              Connecting products to the right manufacturers.
-            </span>
-          </footer>
+            <a href="#how-it-works" className={styles.secondaryButton}>
+              Discover How It Works
+            </a>
+          </div>
         </div>
-      </main>
-    </div>
+
+        <div className={styles.heroVisual}>
+          <Image
+            src="/gmm-manufacturing-hero.png"
+            alt="Industrial robotic arm operating on a modern manufacturing production line"
+            fill
+            priority
+            sizes="(max-width: 760px) 100vw, 50vw"
+            className={styles.heroImage}
+          />
+          <div className={styles.imageOverlay} />
+        </div>
+      </section>
+
+      <section className={styles.section} id="how-it-works">
+        <h2 className={styles.sectionHeading}>How GMM Works</h2>
+        <p className={styles.sectionSubtitle}>
+          A straightforward path from product requirements to manufacturing partners.
+        </p>
+
+        <div className={styles.steps}>
+          {steps.map((step) => (
+            <article className={styles.step} key={step.number}>
+              <span className={styles.stepNumber}>{step.number}</span>
+              <div>
+                <span className={styles.stepIcon}>{step.icon}</span>
+                <h3>{step.title}</h3>
+                <p>{step.description}</p>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className={styles.benefitsSection} id="about">
+        <h2 className={styles.sectionHeading}>
+          Manufacturing Sourcing, Simplified
+        </h2>
+        <p className={styles.sectionSubtitle}>
+          Tools to help businesses discover and work with manufacturing partners.
+        </p>
+
+        <div className={styles.benefits}>
+          {benefits.map((benefit) => (
+            <article className={styles.benefit} key={benefit.title}>
+              <span className={styles.benefitIcon}>{benefit.icon}</span>
+              <div>
+                <h3>{benefit.title}</h3>
+                <p>{benefit.description}</p>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className={styles.faqSection} id="faq">
+        <h2 className={styles.sectionHeading}>
+          Frequently Asked Questions
+        </h2>
+
+        <p className={styles.sectionSubtitle}>
+          Everything you need to know about getting started with GMM.
+        </p>
+
+        <div className={styles.faqList}>
+          {faqs.map((faq, index) => (
+            <details className={styles.faqItem} key={index}>
+              <summary>{faq.question}</summary>
+              <p>{faq.answer}</p>
+            </details>
+          ))}
+        </div>
+      </section>
+
+      <section className={styles.cta}>
+        <div>
+          <h2>Ready to find your manufacturing partner?</h2>
+          <p>
+            Start organizing your sourcing projects and discover potential
+            manufacturing matches with GMM.
+          </p>
+        </div>
+        <Link href="/register" className={styles.ctaButton}>
+          Get Started Free →
+        </Link>
+      </section>
+
+      <footer className={styles.footer}>
+        <span>© 2026 Global Manufacturer Matchmaker. All rights reserved.</span>
+        <span>
+          <Link href="/supplier/login">Manufacturer Portal</Link>
+          {" · "}
+          <Link href="/dashboard">Dashboard</Link>
+        </span>
+      </footer>
+    </main>
   );
 }

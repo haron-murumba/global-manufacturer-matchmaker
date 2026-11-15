@@ -44,23 +44,26 @@ export default function SupplierRFQPage() {
   }, []);
 
   useEffect(() => {
-  const token = localStorage.getItem("manufacturerToken");
+    const token = localStorage.getItem("manufacturerToken");
 
     if (!token) {
       router.replace("/supplier/login");
       return;
     }
 
-    try {
-      const savedManufacturer = localStorage.getItem("manufacturer");
-      if (savedManufacturer) {
-        setManufacturer(JSON.parse(savedManufacturer));
-      }
-    } catch {
-      localStorage.removeItem("manufacturer");
-    }
+    Promise.resolve().then(() => {
+      try {
+        const savedManufacturer = localStorage.getItem("manufacturer");
 
-    loadRFQs(token);
+        if (savedManufacturer) {
+          setManufacturer(JSON.parse(savedManufacturer));
+        }
+      } catch {
+        localStorage.removeItem("manufacturer");
+      }
+
+      loadRFQs(token);
+    });
   }, [router, loadRFQs]);
 
   function logout() {
@@ -178,7 +181,9 @@ export default function SupplierRFQPage() {
   }
 
   const pendingCount = rfqs.filter(
-    (rfq) => rfq.quotation?.status === "Pending"
+    (rfq) =>
+      rfq.quotation?.status === "Pending" &&
+      rfq.status === "Sent"
   ).length;
 
   const submittedCount = rfqs.filter(
@@ -283,6 +288,15 @@ export default function SupplierRFQPage() {
             <div className="space-y-4">
               {rfqs.map((rfq) => {
                 const status = rfq.quotation?.status || "Pending";
+                const rfqClosed =
+                  rfq.status === "Completed" || rfq.status === "Cancelled";
+                const displayStatus = rfq.isAwarded
+                  ? "Awarded"
+                  : rfq.status === "Cancelled"
+                    ? "Cancelled"
+                    : rfq.status === "Completed"
+                      ? "Responses complete"
+                      : status;
 
                 return (
                   <article
@@ -309,7 +323,7 @@ export default function SupplierRFQPage() {
                               : "bg-amber-950 text-amber-300"
                         }`}
                       >
-                        {status}
+                        {displayStatus}
                       </span>
                     </div>
 
@@ -345,7 +359,7 @@ export default function SupplierRFQPage() {
                       </p>
                     )}
 
-                    {status === "Pending" && (
+                    {status === "Pending" && !rfqClosed && (
                       <button
                         onClick={() => openQuotation(rfq)}
                         className="mt-5 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold hover:bg-blue-500"
@@ -364,6 +378,16 @@ export default function SupplierRFQPage() {
                     {status === "Declined" && (
                       <p className="mt-4 text-sm text-slate-400">
                         You declined this invitation.
+                      </p>
+                    )}
+
+                    {rfqClosed && status === "Pending" && (
+                      <p className="mt-4 text-sm text-slate-400">
+                        {rfq.isAwarded
+                          ? "This RFQ has been awarded and responses are closed."
+                          : rfq.status === "Cancelled"
+                            ? "This RFQ was cancelled."
+                            : "The response period is complete. No further responses are accepted."}
                       </p>
                     )}
                   </article>

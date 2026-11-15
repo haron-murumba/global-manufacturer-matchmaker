@@ -66,7 +66,7 @@ function RFQContent() {
       }
 
       const [projectData, manufacturerData, rfqData] = await Promise.all([
-        getProjects(),
+        getProjects(token),
         getManufacturers(),
         getRFQs(token),
       ]);
@@ -83,7 +83,9 @@ function RFQContent() {
 
 
     useEffect(() => {
-      loadData();
+      Promise.resolve().then(() => {
+        loadData();
+      });
     }, []);
 
     function handleProjectChange(event) {
@@ -187,7 +189,7 @@ function RFQContent() {
 
   return (
     <main className="rfq-page">
-      <Link href="/" className="back-link">
+      <Link href="/dashboard" className="back-link">
         ← Back to Dashboard
       </Link>
 
@@ -424,7 +426,13 @@ function RFQContent() {
                       Process: {rfq.process || "—"}
                     </p>
                   </div>
-                  <span className="status">{rfq.status}</span>
+                  <span className="status">
+                    {rfq.status === "Completed"
+                      ? rfq.selectedManufacturer
+                        ? "Awarded"
+                        : "Responses complete"
+                      : rfq.status}
+                  </span>
                 </div>
 
                 <h4>Supplier Quotations</h4>

@@ -3,10 +3,23 @@ const mongoose = require('mongoose');
 
 const projectSchema = new mongoose.Schema(
   {
+
+    customer: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Customer',
+      index: true,
+    },
+
     productName: {
       type: String,
       required: true,
       trim: true,
+    },
+
+    productCategory: {
+      type: String,
+      trim: true,
+      default: '',
     },
 
     description: {

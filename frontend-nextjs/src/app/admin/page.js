@@ -52,7 +52,7 @@ setAwaitingActivation(activationData.manufacturers || []);
 try {
   const [projectsData, manufacturersData, rfqData] =
         await Promise.all([
-          getProjects(),
+          getProjects(currentToken),
           getManufacturers(),
           getRFQs(currentToken),
         ]);
@@ -82,8 +82,10 @@ try {
     const savedToken = localStorage.getItem("adminToken");
 
     if (savedToken) {
-      setToken(savedToken);
-      loadPending(savedToken);
+      Promise.resolve().then(() => {
+        setToken(savedToken);
+        loadPending(savedToken);
+      });
     }
   }, []);
 
@@ -221,7 +223,7 @@ try {
         color: "#e5e7eb",
       }}
     >
-      <a href="/" style={{ color: "#70a8ff", textDecoration: "none" }}>
+      <a href="/dashboard" style={{ color: "#70a8ff", textDecoration: "none" }}>
         ← Back to Dashboard
       </a>
 

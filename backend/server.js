@@ -31,12 +31,14 @@ const manufacturerRoutes = require('./routes/manufacturerRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const rfqRoutes = require('./routes/rfqRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const customerRoutes = require('./routes/customerRoutes');
 
 app.use('/api/projects', projectRoutes);
 app.use('/api/manufacturers', manufacturerRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/rfqs', rfqRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/customers', customerRoutes);
 
 app.get('/', (req, res) => {
   res.json({

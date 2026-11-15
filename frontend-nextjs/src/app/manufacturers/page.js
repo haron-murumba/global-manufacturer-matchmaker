@@ -5,6 +5,17 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { getManufacturers, registerManufacturer } from "@/lib/api";
 
+const productCategoryOptions = [
+  "Smart Devices",
+  "Consumer Electronics",
+  "Bottles & Drinkware",
+  "Plastic Products",
+  "Industrial Components",
+  "Automotive Products",
+  "Laboratory Equipment",
+  "Other",
+];
+
 const initialForm = {
   companyName: "",
   country: "",
@@ -30,9 +41,6 @@ export default function ManufacturersPage() {
   const [message, setMessage] = useState("");
 
   async function loadManufacturers() {
-    setLoading(true);
-    setError("");
-
     try {
       const data = await getManufacturers();
 
@@ -49,7 +57,9 @@ export default function ManufacturersPage() {
   }
 
   useEffect(() => {
-    loadManufacturers();
+    Promise.resolve().then(() => {
+      loadManufacturers();
+    });
   }, []);
 
   function updateField(event) {
@@ -87,6 +97,8 @@ export default function ManufacturersPage() {
       setMessage("Manufacturer registered successfully.");
       setForm(initialForm);
       setShowForm(false);
+      setLoading(true);
+      setError("");
       await loadManufacturers();
     } catch (err) {
       setError(err.message || "Registration failed.");
@@ -97,7 +109,7 @@ export default function ManufacturersPage() {
 
   return (
     <main style={{ padding: "30px 3%", width: "100%", minHeight: "100vh" }}>
-      <Link href="/" style={{ color: "#70a8ff", textDecoration: "none" }}>
+      <Link href="/dashboard" style={{ color: "#70a8ff", textDecoration: "none" }}>
         ← Back to Dashboard
       </Link>
 
@@ -151,7 +163,6 @@ export default function ManufacturersPage() {
               ["manufacturingProcesses", "Manufacturing Processes (comma separated)", true],
               ["materials", "Materials (comma separated)", true],
               ["capabilities", "Capabilities (comma separated)", false],
-              ["productCategories", "Product Categories (comma separated)", false],
             ].map(([name, label, required]) => (
               <label key={name} className="manufacturer-field">
                 <span>{label}</span>
@@ -166,6 +177,31 @@ export default function ManufacturersPage() {
                 />
               </label>
             ))}
+
+            <label className="manufacturer-field">
+              <span>Product Categories</span>
+              <select
+                name="productCategories"
+                multiple
+                value={form.productCategories.split(",").filter(Boolean)}
+                onChange={(event) =>
+                  setForm((previous) => ({
+                    ...previous,
+                    productCategories: Array.from(
+                      event.target.selectedOptions,
+                      (option) => option.value
+                    ).join(","),
+                  }))
+                }
+              >
+                {productCategoryOptions.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
+              <small>Select all categories the manufacturer genuinely supports.</small>
+            </label>
 
             <label className="manufacturer-field">
               <span>Small Order Responsiveness</span>
@@ -258,6 +294,10 @@ export default function ManufacturersPage() {
           background: #0d1627;
           color: #edf2fa;
           outline: none;
+        }
+
+        .manufacturer-field select[multiple] {
+          min-height: 150px;
         }
 
         .manufacturer-list {
