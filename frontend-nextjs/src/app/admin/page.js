@@ -527,6 +527,84 @@ try {
           ))}
 
 
+          {/* Verified Manufacturer Access Management */}
+          <section style={{ marginTop: 35 }}>
+            <h2>Verified Manufacturers — Access Management</h2>
+            <p style={{ color: "#91a0b7" }}>
+              Review active and verified suppliers. Rejecting a supplier
+              revokes access to its manufacturer account.
+            </p>
+
+            {verifiedManufacturers.length === 0 ? (
+              <div style={panelStyle}>
+                No verified manufacturers are currently registered.
+              </div>
+            ) : (
+              verifiedManufacturers.map((manufacturer) => (
+                <article key={manufacturer._id} style={panelStyle}>
+                  <h3>{manufacturer.companyName}</h3>
+
+                  <p style={{ color: "#aab8ca" }}>
+                    {manufacturer.city}, {manufacturer.country}
+                  </p>
+
+                  <p>Email: {manufacturer.contactEmail}</p>
+
+                  <p>
+                    MOQ:{" "}
+                    {manufacturer.minimumOrderQuantity ?? "Not specified"}
+                  </p>
+
+                  <p>
+                    Processes:{" "}
+                    {(manufacturer.manufacturingProcesses || []).join(", ")}
+                  </p>
+
+                  <p>
+                    Materials: {(manufacturer.materials || []).join(", ")}
+                  </p>
+
+                  <p style={{ color: "#65d6a5" }}>
+                    Status: {manufacturer.verificationStatus}
+                  </p>
+
+                  <label style={{ display: "block", marginTop: 15 }}>
+                    Rejection reason (required)
+                    <input
+                      value={reasons[manufacturer._id] || ""}
+                      onChange={(e) =>
+                        setReasons({
+                          ...reasons,
+                          [manufacturer._id]: e.target.value,
+                        })
+                      }
+                      placeholder="Enter reason for revoking approval"
+                      style={inputStyle}
+                    />
+                  </label>
+
+                  <button
+                    onClick={() =>
+                      handleReview(
+                        manufacturer._id,
+                        "Rejected",
+                        manufacturer.contactEmail
+                      )
+                    }
+                    disabled={loading}
+                    style={{
+                      ...buttonStyle,
+                      background: "#8b3038",
+                      marginTop: 15,
+                    }}
+                  >
+                    Reject Manufacturer & Revoke Access
+                  </button>
+                </article>
+              ))
+            )}
+          </section>
+
           {/* RFQ Management Overview */}
           <section style={{ marginTop: 35 }}>
             <h2 style={{ marginBottom: 18 }}>RFQ Management</h2>
