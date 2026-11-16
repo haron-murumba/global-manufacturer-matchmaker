@@ -793,6 +793,11 @@ router.post('/mine/:id/confirm-specifications', customerAuth, async (req, res) =
     project.specificationsConfirmedAt = new Date();
     project.specificationsConfirmedBy = req.customer.customerId;
 
+    // Make a confirmed draft project available for manufacturer matching.
+    if (project.status === 'Draft') {
+      project.status = 'Ready for Matching';
+    }
+
     await project.save();
 
     return res.status(200).json({

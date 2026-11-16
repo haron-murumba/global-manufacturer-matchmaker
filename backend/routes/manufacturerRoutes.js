@@ -200,7 +200,7 @@ router.get('/match/:projectId', customerAuth, async (req, res) => {
       });
     }
 
-    if (project.specificationStatus === 'Customer Review') {
+    if (project.specificationStatus !== 'Confirmed') {
       return res.status(409).json({
         success: false,
         code: 'SPECIFICATIONS_NOT_CONFIRMED',

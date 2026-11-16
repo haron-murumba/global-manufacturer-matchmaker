@@ -352,7 +352,7 @@ return (
                         {project.description || "No description"}
                       </span>
                       <span className={styles.subtext}>
-                        Specifications: {project.specificationStatus || "Confirmed"}
+                        Specifications: {project.specificationStatus || "Not confirmed"}
                       </span>
                       <Link
                         href={`/projects/${project._id}/review`}
