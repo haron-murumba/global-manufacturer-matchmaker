@@ -170,12 +170,24 @@ router.patch('/manufacturers/:id/review', adminAuth, async (req, res) => {
       });
     }
 
-    if (!['Under Review', 'Unverified'].includes(manufacturer.verificationStatus)) {
+    const canReviewPendingManufacturer = [
+      'Under Review',
+      'Unverified',
+    ].includes(manufacturer.verificationStatus);
+
+    const canRevokeVerifiedManufacturer =
+      decision === 'Rejected' &&
+      manufacturer.verificationStatus === 'Verified';
+
+    if (
+      !canReviewPendingManufacturer &&
+      !canRevokeVerifiedManufacturer
+    ) {
       return res.status(400).json({
         success: false,
-        message: 'Only unverified or under-review manufacturers can be reviewed.',
-    });
-}
+        message: 'This manufacturer cannot be reviewed in its current verification state.',
+      });
+    }
 
     manufacturer.verificationStatus = decision;
     manufacturer.reviewedBy = req.admin.email;

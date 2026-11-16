@@ -139,6 +139,14 @@ try {
         additionalDetails
       );
 
+      if (data.manufacturer?.verificationStatus !== decision) {
+        throw new Error(
+          `Manufacturer review was not confirmed. Expected ${decision}, received ${
+            data.manufacturer?.verificationStatus || "no status"
+          }.`
+        );
+      }
+
       if (decision === "Verified") {
         try {
           const activation = await generateManufacturerActivationToken(
