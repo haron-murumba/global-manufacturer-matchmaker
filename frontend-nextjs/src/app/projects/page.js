@@ -33,6 +33,8 @@ const emptyForm = {
   quantity: "",
   material: "",
   process: "",
+  preferredRegion: "",
+  preferredCountry: "",
   status: "Draft",
 };
 
@@ -94,6 +96,8 @@ export default function ProjectsPage() {
       quantity: project.quantity || "",
       material: project.material || "",
       process: project.process || "",
+      preferredRegion: project.preferredRegion || "",
+      preferredCountry: project.preferredCountry || "",
       status: project.status || "Draft",
     });
     setCadFile(null);
@@ -154,6 +158,8 @@ export default function ProjectsPage() {
     data.append("quantity", form.quantity);
     data.append("material", form.material.trim());
     data.append("process", form.process.trim());
+    data.append("preferredRegion", form.preferredRegion);
+    data.append("preferredCountry", form.preferredCountry.trim());
     data.append("status", form.status);
 
     if (cadFile) {
@@ -535,6 +541,38 @@ return (
                 placeholder="e.g. Injection Moulding"
                 required
               />
+            </label>
+
+            <label>
+              Preferred Manufacturing Region (Optional)
+              <select
+                name="preferredRegion"
+                value={form.preferredRegion}
+                onChange={handleChange}
+              >
+                <option value="">Any region</option>
+                <option value="Africa">Africa</option>
+                <option value="Asia">Asia</option>
+                <option value="Europe">Europe</option>
+                <option value="North America">North America</option>
+                <option value="South America">South America</option>
+                <option value="Oceania">Oceania</option>
+              </select>
+            </label>
+
+            <label>
+              Preferred Manufacturing Country (Optional)
+              <input
+                name="preferredCountry"
+                value={form.preferredCountry}
+                onChange={handleChange}
+                placeholder="e.g. Germany, China, Kenya"
+                maxLength={100}
+              />
+              <small>
+                Leave blank to consider manufacturers across the selected region.
+                A country preference takes priority over a region preference.
+              </small>
             </label>
 
             {editingId && (

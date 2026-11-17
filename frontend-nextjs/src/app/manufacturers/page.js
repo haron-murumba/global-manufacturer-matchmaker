@@ -77,20 +77,21 @@ export default function ManufacturersPage() {
       setError("");
       setMessage("");
 
-      const payload = {
-        ...form,
-        minimumOrderQuantity: form.minimumOrderQuantity
-          ? Number(form.minimumOrderQuantity)
-          : undefined,
-        manufacturingProcesses: form.manufacturingProcesses
-          .split(",").map((item) => item.trim()).filter(Boolean),
-        materials: form.materials
-          .split(",").map((item) => item.trim()).filter(Boolean),
-        capabilities: form.capabilities
-          .split(",").map((item) => item.trim()).filter(Boolean),
-        productCategories: form.productCategories
-          .split(",").map((item) => item.trim()).filter(Boolean),
-      };
+      const payload = new FormData(event.currentTarget);
+
+      [
+        "manufacturingProcesses",
+        "materials",
+        "capabilities",
+        "productCategories",
+      ].forEach((field) => {
+        const values = form[field]
+          .split(",")
+          .map((item) => item.trim())
+          .filter(Boolean);
+
+        payload.set(field, JSON.stringify(values));
+      });
 
       await registerManufacturer(payload);
 
@@ -227,6 +228,32 @@ export default function ManufacturersPage() {
             </label>
           </div>
 
+          <div className="manufacturer-evidence">
+            <h3>Verification Documents</h3>
+            <p>
+              Upload at least one supporting document. Accepted formats:
+              PDF, JPG, JPEG and PNG. Maximum file size: 10 MB per document.
+            </p>
+
+            <div className="manufacturer-form-grid">
+              {[
+                ["companyRegistration", "Company Registration"],
+                ["businessLicense", "Business License"],
+                ["capabilityEvidence", "Manufacturing Capability Evidence"],
+                ["otherEvidence", "Other Supporting Evidence"],
+              ].map(([name, label]) => (
+                <label key={name} className="manufacturer-field">
+                  <span>{label}</span>
+                  <input
+                    type="file"
+                    name={name}
+                    accept=".pdf,.jpg,.jpeg,.png"
+                  />
+                </label>
+              ))}
+            </div>
+          </div>
+
           <button className="primary-button" disabled={saving} type="submit">
             {saving ? "Registering..." : "Submit Manufacturer"}
           </button>
@@ -282,6 +309,27 @@ export default function ManufacturersPage() {
           gap: 8px;
           color: #aab8ca;
           font-size: 12px;
+        }
+
+        .manufacturer-evidence {
+          margin: 10px 0 22px;
+          padding: 18px;
+          border: 1px solid #344966;
+          border-radius: 8px;
+          background: #0d1627;
+        }
+
+        .manufacturer-evidence h3 {
+          margin: 0 0 8px;
+          color: #edf2fa;
+          font-size: 15px;
+        }
+
+        .manufacturer-evidence p {
+          margin: 0 0 16px;
+          color: #aab8ca;
+          font-size: 12px;
+          line-height: 1.6;
         }
 
         .manufacturer-field input,

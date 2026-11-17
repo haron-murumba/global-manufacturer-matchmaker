@@ -47,6 +47,26 @@ const projectSchema = new mongoose.Schema(
       trim: true,
     },
 
+    preferredRegion: {
+      type: String,
+      enum: [
+        '',
+        'Africa',
+        'Asia',
+        'Europe',
+        'North America',
+        'South America',
+        'Oceania',
+      ],
+      default: '',
+    },
+
+    preferredCountry: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+
     dimensions: {
       length: { type: Number, min: 0 },
       width: { type: Number, min: 0 },

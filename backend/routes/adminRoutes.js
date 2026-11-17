@@ -3,6 +3,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const Manufacturer = require('../models/Manufacturer');
+const cloudinary = require('../config/cloudinary');
 const Notification = require('../models/Notification');
 const adminAuth = require('../middleware/adminAuth');
 const crypto = require('crypto');
@@ -111,6 +112,81 @@ router.get('/manufacturers/pending', adminAuth, async (req, res) => {
     });
   }
 });
+
+// GET: Securely access a manufacturer's verification document
+router.get(
+  '/manufacturers/:id/verification-documents/:documentIndex',
+  adminAuth,
+  async (req, res) => {
+    try {
+      const { id, documentIndex } = req.params;
+
+      if (!/^[0-9a-fA-F]{24}$/.test(id)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid manufacturer ID.',
+        });
+      }
+
+      const index = Number(documentIndex);
+
+      if (!Number.isInteger(index) || index < 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid verification document index.',
+        });
+      }
+
+      const manufacturer = await Manufacturer.findById(id);
+
+      if (!manufacturer) {
+        return res.status(404).json({
+          success: false,
+          message: 'Manufacturer not found.',
+        });
+      }
+
+      const document = manufacturer.verificationDocuments[index];
+
+      if (!document || !document.publicId || !document.format) {
+        return res.status(404).json({
+          success: false,
+          message: 'Verification document not found.',
+        });
+      }
+
+      if (document.resourceType !== 'raw') {
+        return res.status(400).json({
+          success: false,
+          message: 'Unsupported verification document type.',
+        });
+      }
+
+      const url = cloudinary.utils.private_download_url(
+        document.publicId,
+        document.format,
+        {
+          resource_type: 'raw',
+          type: 'private',
+          expires_at: Math.floor(Date.now() / 1000) + 3600,
+        }
+      );
+
+      return res.status(200).json({
+        success: true,
+        url,
+        expiresInSeconds: 3600,
+      });
+    } catch (error) {
+      console.error('Verification document access error:', error);
+
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to generate verification document access.',
+      });
+    }
+  }
+);
 
 // GET: View verified manufacturers who have not activated their accounts
 router.get('/manufacturers/awaiting-activation', adminAuth, async (req, res) => {

@@ -259,6 +259,17 @@ router.post('/mine', customerAuth, upload.single('cadFile'), async (req, res) =>
       });
     }
 
+    const allowedRegions = ["", "Africa", "Asia", "Europe", "North America", "South America", "Oceania"];
+    const preferredRegion = String(req.body.preferredRegion || "").trim();
+    const preferredCountry = String(req.body.preferredCountry || "").trim();
+
+    if (!allowedRegions.includes(preferredRegion) || preferredCountry.length > 100) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid manufacturing location preference.",
+      });
+    }
+
     if (!req.file) {
       return res.status(400).json({
         success: false,
@@ -279,6 +290,8 @@ router.post('/mine', customerAuth, upload.single('cadFile'), async (req, res) =>
       quantity,
       material,
       process,
+      preferredRegion,
+      preferredCountry,
       dimensions: normalizeDimensions(parsedDimensions.value),
       technicalRequirements: parsedRequirements.value,
       specificationStatus: 'Customer Review',
@@ -643,6 +656,29 @@ router.put('/mine/:id', customerAuth, upload.single('cadFile'), async (req, res)
       });
     }
 
+    const allowedRegions = ["", "Africa", "Asia", "Europe", "North America", "South America", "Oceania"];
+
+    if (req.body.preferredRegion !== undefined) {
+      const region = String(req.body.preferredRegion || "").trim();
+
+      if (!allowedRegions.includes(region)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid preferred manufacturing region.",
+        });
+      }
+    }
+
+    if (
+      req.body.preferredCountry !== undefined &&
+      String(req.body.preferredCountry || "").trim().length > 100
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Preferred country must not exceed 100 characters.",
+      });
+    }
+
     const project = await Project.findOne({
       _id: id,
       customer: req.customer.customerId,
@@ -655,6 +691,18 @@ router.put('/mine/:id', customerAuth, upload.single('cadFile'), async (req, res)
       });
     }
 
+    let geographicPreferencesChanged = false;
+
+    if (req.body.preferredRegion !== undefined) {
+      project.preferredRegion = String(req.body.preferredRegion || "").trim();
+      geographicPreferencesChanged = true;
+    }
+
+    if (req.body.preferredCountry !== undefined) {
+      project.preferredCountry = String(req.body.preferredCountry || "").trim();
+      geographicPreferencesChanged = true;
+    }
+
     const allowedFields = [
       'productName',
       'productCategory',
@@ -664,7 +712,7 @@ router.put('/mine/:id', customerAuth, upload.single('cadFile'), async (req, res)
       'process',
     ];
 
-    let specificationsChanged = Boolean(req.file);
+    let specificationsChanged = Boolean(req.file) || geographicPreferencesChanged;
 
     for (const field of allowedFields) {
       if (req.body[field] !== undefined) {

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import {
   adminLogin,
   getPendingManufacturers,
+  getManufacturerVerificationDocument,
   reviewManufacturer,
   generateManufacturerActivationToken,
   getManufacturersAwaitingActivation,
@@ -20,6 +21,7 @@ export default function AdminPage() {
   const [token, setToken] = useState("");
   const [manufacturers, setManufacturers] = useState([]);
   const [awaitingActivation, setAwaitingActivation] = useState([]);
+  const [documentLinks, setDocumentLinks] = useState({});
 
   const [projects, setProjects] = useState([]);
   const [verifiedManufacturers, setVerifiedManufacturers] = useState([]);
@@ -107,6 +109,31 @@ try {
       setError(err.message || "Login failed.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleViewVerificationDocument(manufacturerId, documentIndex) {
+    setError("");
+    setMessage("");
+
+    try {
+      const result = await getManufacturerVerificationDocument(
+        manufacturerId,
+        documentIndex,
+        token
+      );
+
+      if (!result.url) {
+        throw new Error("The server did not return a document link.");
+      }
+
+      const key = `${manufacturerId}-${documentIndex}`;
+      setDocumentLinks((current) => ({
+        ...current,
+        [key]: result.url,
+      }));
+    } catch (err) {
+      setError(err.message || "Could not retrieve the verification document.");
     }
   }
 
@@ -468,6 +495,81 @@ try {
               <p style={{ color: "#f5bd63" }}>
                 Status: {manufacturer.verificationStatus}
               </p>
+
+              <section
+                style={{
+                  marginTop: 18,
+                  padding: 14,
+                  border: "1px solid #34445c",
+                  borderRadius: 8,
+                }}
+              >
+                <h4 style={{ margin: "0 0 10px" }}>Verification Evidence</h4>
+
+                {(manufacturer.verificationDocuments || []).length === 0 ? (
+                  <p style={{ color: "#aab8ca", margin: 0 }}>
+                    No supporting documents were uploaded for this application.
+                  </p>
+                ) : (
+                  (manufacturer.verificationDocuments || []).map((document, index) => {
+                    const key = `${manufacturer._id}-${index}`;
+                    const documentUrl = documentLinks[key];
+
+                    return (
+                      <div
+                        key={`${document.publicId || document.originalFilename}-${index}`}
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          gap: 12,
+                          flexWrap: "wrap",
+                          padding: "9px 0",
+                          borderBottom: "1px solid #263750",
+                        }}
+                      >
+                        <div>
+                          <p style={{ margin: 0, fontWeight: 600 }}>
+                            {document.documentType || "Supporting document"}
+                          </p>
+                          <p style={{ color: "#aab8ca", margin: "4px 0 0" }}>
+                            {document.originalFilename || "Uploaded file"}
+                            {document.uploadedAt
+                              ? ` · ${new Date(document.uploadedAt).toLocaleDateString()}`
+                              : ""}
+                          </p>
+                        </div>
+
+                        {documentUrl ? (
+                          <a
+                            href={documentUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ color: "#80b7ff", textDecoration: "underline" }}
+                          >
+                            Open document
+                          </a>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleViewVerificationDocument(manufacturer._id, index)
+                            }
+                            disabled={loading}
+                            style={buttonStyle}
+                          >
+                            Generate secure link
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+
+                <p style={{ color: "#91a0b7", fontSize: 12, marginBottom: 0 }}>
+                  Secure document links expire after one hour.
+                </p>
+              </section>
 
               <label style={{ display: "block", marginTop: 15 }}>
                 Rejection reason (required only when rejecting)

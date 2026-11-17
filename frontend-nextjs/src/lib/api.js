@@ -84,7 +84,7 @@ export const getRFQManufacturerMatches = (projectId, token) =>
 export const registerManufacturer = (manufacturer) =>
   apiRequest("/api/manufacturers/", {
     method: "POST",
-    body: JSON.stringify(manufacturer),
+    body: manufacturer,
   });
 
 export const getManufacturerMatches = (projectId, token) =>
@@ -107,6 +107,20 @@ export const getPendingManufacturers = (token) =>
       Authorization: `Bearer ${token}`,
     },
   });
+
+export const getManufacturerVerificationDocument = (
+  manufacturerId,
+  documentIndex,
+  token
+) =>
+  apiRequest(
+    `/api/admin/manufacturers/${manufacturerId}/verification-documents/${documentIndex}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
 
 export const reviewManufacturer = (
   id,

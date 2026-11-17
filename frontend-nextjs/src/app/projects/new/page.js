@@ -27,6 +27,8 @@ export default function CreateProjectPage() {
     quantity: "",
     material: "",
     process: "",
+    preferredRegion: "",
+    preferredCountry: "",
   });
 
   const [file, setFile] = useState(null);
@@ -272,6 +274,44 @@ export default function CreateProjectPage() {
               <option value="Die Casting">Die Casting</option>
               <option value="Not Sure">Not Sure</option>
             </select>
+          </label>
+
+          <label style={labelStyle}>
+            Preferred Manufacturing Region (Optional)
+            <select
+              style={inputStyle}
+              name="preferredRegion"
+              value={formData.preferredRegion}
+              onChange={handleChange}
+            >
+              <option value="">Any region</option>
+              <option value="Africa">Africa</option>
+              <option value="Asia">Asia</option>
+              <option value="Europe">Europe</option>
+              <option value="North America">North America</option>
+              <option value="South America">South America</option>
+              <option value="Oceania">Oceania</option>
+            </select>
+          </label>
+
+          <label style={labelStyle}>
+            Preferred Manufacturing Country (Optional)
+            <input
+              style={inputStyle}
+              name="preferredCountry"
+              value={formData.preferredCountry}
+              onChange={handleChange}
+              placeholder="e.g. Germany, China, Kenya"
+              maxLength={100}
+            />
+            <small style={{
+              display: "block",
+              color: "#94a3b8",
+              marginTop: "8px",
+              fontWeight: "400",
+            }}>
+              Leave blank to consider manufacturers across the selected region.
+            </small>
           </label>
 
           <label style={labelStyle}>

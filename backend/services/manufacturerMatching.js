@@ -82,6 +82,7 @@ function materialsCompatible(projectMaterial, manufacturerMaterials = []) {
 }
 
 function productCapabilityMatches(project, manufacturer) {
+  // These are explicit equivalent category terms, not substring matches.
   const categoryGroups = {
     'smart devices': [
       'smart devices',
@@ -135,7 +136,7 @@ function productCapabilityMatches(project, manufacturer) {
         : []
   )
     .map(normalize)
-    .filter(Boolean);
+    .filter((category) => category && category !== 'other');
 
   const manufacturerTerms = [
     ...(manufacturer.productCategories || []),
@@ -144,36 +145,22 @@ function productCapabilityMatches(project, manufacturer) {
     .map(normalize)
     .filter(Boolean);
 
-  const recognizedCategories = projectCategories.filter(
-    (category) => category !== 'other'
-  );
-
-  if (recognizedCategories.length) {
-    return recognizedCategories.some((projectCategory) => {
-      const acceptedTerms = categoryGroups[projectCategory] || [
-        projectCategory,
-      ];
-
-      return manufacturerTerms.some((term) =>
-        acceptedTerms.some(
-          (accepted) =>
-            term === normalize(accepted) ||
-            term.includes(normalize(accepted))
-        )
-      );
-    });
+  if (!projectCategories.length) {
+    return false;
   }
 
-  const productName = normalize(project.productName);
+  return projectCategories.some((projectCategory) => {
+    const acceptedTerms = categoryGroups[projectCategory] || [
+      projectCategory,
+    ];
 
-  return Boolean(
-    productName &&
-    manufacturerTerms.some(
-      (term) =>
-        productName.includes(term) ||
-        term.includes(productName)
-    )
-  );
+    return manufacturerTerms.some((manufacturerTerm) =>
+      acceptedTerms.some(
+        (acceptedTerm) =>
+          manufacturerTerm === normalize(acceptedTerm)
+      )
+    );
+  });
 }
 
 function calculateManufacturerMatch(project, manufacturer) {
@@ -225,6 +212,12 @@ function calculateManufacturerMatch(project, manufacturer) {
       website: manufacturer.website,
       contactEmail: manufacturer.contactEmail,
       verificationStatus: manufacturer.verificationStatus,
+      manufacturingProcesses: manufacturer.manufacturingProcesses || [],
+      materials: manufacturer.materials || [],
+      productCategories: manufacturer.productCategories || [],
+      capabilities: manufacturer.capabilities || [],
+      minimumOrderQuantity: manufacturer.minimumOrderQuantity ?? null,
+      smallOrderResponsiveness: manufacturer.smallOrderResponsiveness || 'Unknown',
       eligible: false,
       matchScore: 0,
       scoreBreakdown,
@@ -260,7 +253,7 @@ function calculateManufacturerMatch(project, manufacturer) {
       missing.push('Order quantity is below manufacturer minimum');
     }
   } else {
-    scoreBreakdown.orderQuantity = 7.5;
+    scoreBreakdown.orderQuantity = 0;
     missing.push('Manufacturer minimum order quantity is unknown');
   }
 
@@ -288,6 +281,12 @@ function calculateManufacturerMatch(project, manufacturer) {
     website: manufacturer.website,
     contactEmail: manufacturer.contactEmail,
     verificationStatus: manufacturer.verificationStatus,
+    manufacturingProcesses: manufacturer.manufacturingProcesses || [],
+    materials: manufacturer.materials || [],
+    productCategories: manufacturer.productCategories || [],
+    capabilities: manufacturer.capabilities || [],
+    minimumOrderQuantity: manufacturer.minimumOrderQuantity ?? null,
+    smallOrderResponsiveness: manufacturer.smallOrderResponsiveness || 'Unknown',
     eligible: true,
     matchScore: score,
     scoreBreakdown,
@@ -305,7 +304,23 @@ function findManufacturerMatches(project, manufacturers) {
     .sort((a, b) => b.matchScore - a.matchScore);
 }
 
+// Return both compatible recommendations and compatibility diagnostics.
+// Incompatible manufacturers are diagnostic only and must not be recommended.
+function analyzeManufacturerMatches(project, manufacturers) {
+  const results = manufacturers.map((manufacturer) =>
+    calculateManufacturerMatch(project, manufacturer)
+  );
+
+  return {
+    matches: results
+      .filter((match) => match.eligible)
+      .sort((a, b) => b.matchScore - a.matchScore),
+    incompatible: results.filter((match) => !match.eligible),
+  };
+}
+
 module.exports = {
   calculateManufacturerMatch,
   findManufacturerMatches,
+  analyzeManufacturerMatches,
 };

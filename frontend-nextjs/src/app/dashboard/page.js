@@ -65,6 +65,10 @@ export default function Home() {
   const [customer, setCustomer] = useState(null);
   const [manufacturers, setManufacturers] = useState([]);
   const [matches, setMatches] = useState([]);
+  const [incompatibleMatches, setIncompatibleMatches] = useState([]);
+  const [locationExcluded, setLocationExcluded] = useState([]);
+  const [locationPreference, setLocationPreference] = useState(null);
+  const [technicallyCompatibleCount, setTechnicallyCompatibleCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [matchError, setMatchError] = useState("");
@@ -99,9 +103,16 @@ export default function Home() {
       setProjects(projectRecords);
       setManufacturers(manufacturerRecords);
 
-      const confirmedProject = projectRecords.find(
-        (project) => project.specificationStatus === "Confirmed"
-      );
+      const confirmedProject =
+        projectRecords.find(
+          (project) =>
+            project.specificationStatus === "Confirmed" &&
+            (project.preferredCountry?.trim() ||
+              project.preferredRegion?.trim())
+        ) ||
+        projectRecords.find(
+          (project) => project.specificationStatus === "Confirmed"
+        );
 
       if (confirmedProject) {
         try {
@@ -111,11 +122,22 @@ export default function Home() {
           );
 
           setMatches(matchingResult.matches || []);
+          setIncompatibleMatches(matchingResult.incompatible || []);
+          setLocationExcluded(matchingResult.locationExcluded || []);
+          setLocationPreference(matchingResult.locationPreference || null);
+          setTechnicallyCompatibleCount(
+            matchingResult.technicallyCompatibleCount ??
+            (matchingResult.matches || []).length
+          );
         } catch (matchErr) {
           setMatchError(matchErr.message);
         }
       } else {
         setMatches([]);
+        setIncompatibleMatches([]);
+        setLocationExcluded([]);
+        setLocationPreference(null);
+        setTechnicallyCompatibleCount(0);
       }
     } catch (err) {
       setError(err.message || "Unable to load dashboard data.");
@@ -137,9 +159,16 @@ export default function Home() {
 }, [router]);
 
   const latestProject = projects[0];
-  const matchingProject = projects.find(
-    (project) => project.specificationStatus === "Confirmed"
-  );
+  const matchingProject =
+    projects.find(
+      (project) =>
+        project.specificationStatus === "Confirmed" &&
+        (project.preferredCountry?.trim() ||
+          project.preferredRegion?.trim())
+    ) ||
+    projects.find(
+      (project) => project.specificationStatus === "Confirmed"
+    );
 
   const verifiedManufacturers = manufacturers.filter(
     (manufacturer) => manufacturer.verificationStatus === "Verified"
@@ -503,6 +532,44 @@ export default function Home() {
 
               {!loading && matchingProject && (
                 <>
+                  <div className="location-match-summary">
+                    <h4>Geographic preference</h4>
+
+                    <p>
+                      <strong>Preferred location:</strong>{" "}
+                      {locationPreference?.preferredCountry ||
+                        locationPreference?.preferredRegion ||
+                        "No geographic restriction"}
+                    </p>
+
+                    {locationPreference?.active ? (
+                      <>
+                        <p>
+                          <strong>Technically compatible:</strong>{" "}
+                          {technicallyCompatibleCount}
+                        </p>
+                        <p>
+                          <strong>Matches within preferred location:</strong>{" "}
+                          {matches.length}
+                        </p>
+                        <p>
+                          <strong>Excluded by location:</strong>{" "}
+                          {locationExcluded.length}
+                        </p>
+                        <small>
+                          Geographic preferences filter technically compatible
+                          manufacturers; they do not change the manufacturing
+                          suitability score.
+                        </small>
+                      </>
+                    ) : (
+                      <p>
+                        All technically compatible manufacturers are considered
+                        regardless of location.
+                      </p>
+                    )}
+                  </div>
+
                   {matches.length > 0 ? (
                     <>
                       <div className="match-score">
@@ -538,16 +605,190 @@ export default function Home() {
                     </>
                   ) : (
                     <div className="matching-empty-state">
-                      <strong>No compatible manufacturers found</strong>
+                      {technicallyCompatibleCount > 0 && locationPreference?.active ? (
+                        <>
+                          <strong>
+                            No technically compatible manufacturers match your preferred location
+                          </strong>
+                          <p>
+                            {technicallyCompatibleCount} technically compatible
+                            manufacturer(s) were found, but none are located in
+                            your preferred manufacturing location:
+                            {` ${locationPreference.preferredCountry || locationPreference.preferredRegion}`}.
+                          </p>
+                          <p>
+                            Review your geographic preference to consider
+                            manufacturers in other locations.
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <strong>No compatible manufacturers found</strong>
+                          <p>
+                            No verified manufacturer currently supports both
+                            {` ${matchingProject.material || "the required material"}`}
+                            {` and ${matchingProject.process || "the required manufacturing process"}`}.
+                          </p>
+                          <p>
+                            A suitable manufacturer must be registered and verified
+                            before GMM can recommend them for this project.
+                          </p>
+                        </>
+                      )}
+                    </div>
+                  )}
+
+
+                  {matches.slice(0, 3).map((match) => (
+                    <details
+                      className="match-diagnostic"
+                      key={match.manufacturerId}
+                    >
+                      <summary>
+                        {match.companyName} — {match.matchScore}% details
+                      </summary>
+
                       <p>
-                        No verified manufacturer currently supports both
-                        {` ${matchingProject.material || "the required material"}`}
-                        {` and ${matchingProject.process || "the required manufacturing process"}`}.
+                        <strong>Location:</strong>{" "}
+                        {[match.city, match.country].filter(Boolean).join(", ") || "Not specified"}
                       </p>
                       <p>
-                        A suitable manufacturer must be registered and verified
-                        before GMM can recommend them for this project.
+                        <strong>Verification:</strong>{" "}
+                        {match.verificationStatus || "Unknown"}
                       </p>
+                      <p>
+                        <strong>Manufacturing processes:</strong>{" "}
+                        {(match.manufacturingProcesses || []).join(", ") || "Not specified"}
+                      </p>
+                      <p>
+                        <strong>Materials:</strong>{" "}
+                        {(match.materials || []).join(", ") || "Not specified"}
+                      </p>
+                      <p>
+                        <strong>Product categories:</strong>{" "}
+                        {(match.productCategories || []).join(", ") || "Not specified"}
+                      </p>
+                      <p>
+                        <strong>Additional capabilities:</strong>{" "}
+                        {(match.capabilities || []).join(", ") || "Not specified"}
+                      </p>
+                      <p>
+                        <strong>Minimum order quantity:</strong>{" "}
+                        {match.minimumOrderQuantity ?? "Unknown"}
+                      </p>
+                      <p>
+                        <strong>Small-order responsiveness:</strong>{" "}
+                        {match.smallOrderResponsiveness || "Unknown"}
+                      </p>
+
+                      <strong>Score breakdown</strong>
+                      <ul>
+                        {Object.entries(match.scoreBreakdown || {}).map(
+                          ([criterion, points]) => (
+                            <li key={criterion}>
+                              {criterion.replace(/([A-Z])/g, " $1")}: {points} points
+                            </li>
+                          )
+                        )}
+                      </ul>
+
+                      <strong>Reasons for matching</strong>
+                      <ul>
+                        {(match.reasons || []).map((reason, index) => (
+                          <li key={index}>{reason}</li>
+                        ))}
+                      </ul>
+
+                      {match.missing?.length > 0 && (
+                        <>
+                          <strong>Remaining gaps</strong>
+                          <ul>
+                            {match.missing.map((item, index) => (
+                              <li key={index}>{item}</li>
+                            ))}
+                          </ul>
+                        </>
+                      )}
+                    </details>
+                  ))}
+
+                  {locationExcluded.length > 0 && (
+                    <div className="incompatible-diagnostics">
+                      <h4>Technically compatible — outside preferred location</h4>
+                      <p>
+                        These manufacturers meet the required manufacturing
+                        process and material criteria, but were excluded by
+                        your geographic preference.
+                      </p>
+
+                      {locationExcluded.map((match) => (
+                        <details
+                          className="match-diagnostic"
+                          key={match.manufacturerId}
+                        >
+                          <summary>{match.companyName}</summary>
+                          <p>
+                            <strong>Location:</strong>{" "}
+                            {[match.city, match.country]
+                              .filter(Boolean)
+                              .join(", ") || "Not specified"}
+                          </p>
+                          <p>
+                            <strong>Reason:</strong>{" "}
+                            {match.locationExclusionReason ||
+                              "Outside the preferred location"}
+                          </p>
+                          <p>
+                            <strong>Technical suitability:</strong>{" "}
+                            {match.matchScore}% match
+                          </p>
+                        </details>
+                      ))}
+                    </div>
+                  )}
+
+                  {incompatibleMatches.length > 0 && (
+                    <div className="incompatible-diagnostics">
+                      <h4>Other verified manufacturers — not recommended</h4>
+                      <p>
+                        These manufacturers were assessed but failed at least
+                        one mandatory material or manufacturing-process requirement.
+                      </p>
+
+                      {incompatibleMatches.map((match) => (
+                        <details
+                          className="match-diagnostic"
+                          key={match.manufacturerId}
+                        >
+                          <summary>
+                            {match.companyName} — Not eligible
+                          </summary>
+
+                          <p>
+                            <strong>Location:</strong>{" "}
+                            {[match.city, match.country].filter(Boolean).join(", ") || "Not specified"}
+                          </p>
+                          <p>
+                            <strong>Manufacturing processes:</strong>{" "}
+                            {(match.manufacturingProcesses || []).join(", ") || "Not specified"}
+                          </p>
+                          <p>
+                            <strong>Materials:</strong>{" "}
+                            {(match.materials || []).join(", ") || "Not specified"}
+                          </p>
+                          <p>
+                            <strong>Minimum order quantity:</strong>{" "}
+                            {match.minimumOrderQuantity ?? "Unknown"}
+                          </p>
+
+                          <strong>Why this manufacturer was excluded</strong>
+                          <ul>
+                            {(match.missing || []).map((reason, index) => (
+                              <li key={index}>{reason}</li>
+                            ))}
+                          </ul>
+                        </details>
+                      ))}
                     </div>
                   )}
 
