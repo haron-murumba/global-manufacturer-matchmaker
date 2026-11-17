@@ -34,7 +34,7 @@ const routes = {
   Dashboard: "/dashboard",
   "My Projects": "/projects",
   Manufacturers: "/manufacturers",
-  "RFQ Manager": "/rfq",
+  "RFQ Manager": "/customer/rfq",
   "Response Tracking": "/response-tracking",
   "Admin Dashboard": "/admin",
   Settings: "/",
@@ -901,7 +901,7 @@ export default function Home() {
               </Link>
 
               <Link
-                href="/rfq"
+                href="/customer/rfq"
                 className="quick-action-link"
               >
                 ↗ <span>Manage RFQs</span> →

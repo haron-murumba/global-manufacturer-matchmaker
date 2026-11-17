@@ -299,3 +299,52 @@ export const getCustomerCadDownloadLink = (id, token) =>
       Authorization: `Bearer ${token}`,
     },
   });
+// Customer RFQ management
+export const getCustomerRFQs = (token) =>
+  apiRequest("/api/rfqs/customer/my-rfqs", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+export const createCustomerRFQ = (rfqData, token) =>
+  apiRequest("/api/rfqs/customer", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(rfqData),
+  });
+
+export const awardCustomerRFQ = (rfqId, manufacturerId, token) =>
+  apiRequest(`/api/rfqs/customer/${rfqId}/award`, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ manufacturerId }),
+  });
+
+// Customer notifications
+export const getCustomerNotifications = (token) =>
+  apiRequest("/api/customer/notifications", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+export const markCustomerNotificationRead = (notificationId, token) =>
+  apiRequest(`/api/customer/notifications/${notificationId}/read`, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+export const markAllCustomerNotificationsRead = (token) =>
+  apiRequest("/api/customer/notifications/read-all", {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });

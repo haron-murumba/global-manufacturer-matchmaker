@@ -10,6 +10,8 @@ const { calculateManufacturerMatch, findManufacturerMatches } = require("../serv
 const Notification = require("../models/Notification");
 const manufacturerAuth = require('../middleware/manufacturerAuth');
 const adminAuth = require("../middleware/adminAuth");
+const customerAuth = require("../middleware/customerAuth");
+const { matchesProjectGeography } = require("../services/manufacturerGeography");
 
 const router = express.Router();
 
@@ -233,6 +235,210 @@ router.post("/", adminAuth, async (req, res) => {
     console.error("Create RFQ error:", error);
     res.status(500).json({
       message: "Could not create RFQ.",
+    });
+  }
+});
+
+
+
+// POST: Create an RFQ for a project owned by the authenticated customer.
+router.post("/customer", customerAuth, async (req, res) => {
+  try {
+    const {
+      projectId,
+      title,
+      quantity,
+      deliveryLocation,
+      deliveryDeadline,
+      quotationDeadline,
+      specifications,
+      manufacturerIds,
+    } = req.body;
+
+    const qty = Number(quantity);
+
+    if (!mongoose.Types.ObjectId.isValid(projectId || "")) {
+      return res.status(400).json({
+        success: false,
+        message: "A valid project is required.",
+      });
+    }
+
+    if (!title || !title.trim() || !Number.isFinite(qty) || qty < 1) {
+      return res.status(400).json({
+        success: false,
+        message: "RFQ title and a valid quantity are required.",
+      });
+    }
+
+    if (!validDate(deliveryDeadline) || !validDate(quotationDeadline)) {
+      return res.status(400).json({
+        success: false,
+        message: "One or more deadline dates are invalid.",
+      });
+    }
+
+    if (!Array.isArray(manufacturerIds) || manufacturerIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Select at least one manufacturer.",
+      });
+    }
+
+    const uniqueIds = [...new Set(manufacturerIds.map(String))];
+
+    if (uniqueIds.some((id) => !mongoose.Types.ObjectId.isValid(id))) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid manufacturer ID.",
+      });
+    }
+
+    const project = await Project.findOne({
+      _id: projectId,
+      customer: req.customer.customerId,
+    });
+
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        message: "Project not found or you do not have access to it.",
+      });
+    }
+
+    if (project.specificationStatus !== "Confirmed") {
+      return res.status(400).json({
+        success: false,
+        message: "Confirm your project specifications before creating an RFQ.",
+      });
+    }
+
+    const manufacturers = await Manufacturer.find({
+      _id: { $in: uniqueIds },
+      verificationStatus: "Verified",
+    });
+
+    if (manufacturers.length !== uniqueIds.length) {
+      return res.status(400).json({
+        success: false,
+        message: "All selected manufacturers must be verified.",
+      });
+    }
+
+    const incompatibleManufacturers = [];
+    const locationExcludedManufacturers = [];
+
+    for (const manufacturer of manufacturers) {
+      const match = calculateManufacturerMatch(project, manufacturer);
+
+      if (!match.eligible) {
+        incompatibleManufacturers.push({
+          companyName: manufacturer.companyName,
+          missing: match.missing || [],
+        });
+        continue;
+      }
+
+      if (!matchesProjectGeography(project, manufacturer)) {
+        locationExcludedManufacturers.push(manufacturer.companyName);
+      }
+    }
+
+    if (incompatibleManufacturers.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "One or more selected manufacturers are not technically compatible.",
+        incompatibleManufacturers,
+      });
+    }
+
+    if (locationExcludedManufacturers.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "One or more selected manufacturers do not match your geographic preference.",
+        locationExcludedManufacturers,
+      });
+    }
+
+    const rfq = await RFQ.create({
+      project: project._id,
+      title: title.trim(),
+      quantity: qty,
+      material: project.material,
+      process: project.process,
+      deliveryLocation,
+      deliveryDeadline: deliveryDeadline || undefined,
+      quotationDeadline: quotationDeadline || undefined,
+      specifications,
+      status: "Sent",
+      quotations: uniqueIds.map((manufacturerId) => ({
+        manufacturer: manufacturerId,
+        status: "Pending",
+      })),
+    });
+
+    try {
+      await Notification.insertMany(
+        manufacturers.map((manufacturer) => ({
+          recipientType: "Manufacturer",
+          recipient: manufacturer._id,
+          type: "RFQ_ASSIGNED",
+          title: "New RFQ Assigned",
+          message: `You have been invited to submit a quotation for "${rfq.title}".`,
+          relatedRFQ: rfq._id,
+          relatedProject: project._id,
+        }))
+      );
+    } catch (notificationError) {
+      console.error(
+        "Customer RFQ notification creation failed:",
+        notificationError.message
+      );
+    }
+
+    const populatedRFQ = await populateRFQ(RFQ.findById(rfq._id));
+
+    return res.status(201).json({
+      success: true,
+      message: "RFQ created and assigned successfully.",
+      rfq: populatedRFQ,
+    });
+  } catch (error) {
+    console.error("Create customer RFQ error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Could not create RFQ.",
+    });
+  }
+});
+
+// GET: View RFQs belonging to the authenticated customer's projects.
+router.get("/customer/my-rfqs", customerAuth, async (req, res) => {
+  try {
+    const customerId = req.customer.customerId;
+
+    const projects = await Project.find({
+      customer: customerId,
+    }).select("_id");
+
+    const projectIds = projects.map((project) => project._id);
+
+    const rfqs = await populateRFQ(
+      RFQ.find({
+        project: { $in: projectIds },
+      }).sort({ createdAt: -1 })
+    );
+
+    return res.status(200).json({
+      success: true,
+      count: rfqs.length,
+      rfqs,
+    });
+  } catch (error) {
+    console.error("Fetch customer RFQs error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Could not retrieve your RFQs.",
     });
   }
 });
@@ -470,6 +676,34 @@ router.patch(
 
       await rfq.save();
 
+      // Notify the customer when a supplier submits or declines a quotation.
+      try {
+        const project = await Project.findById(rfq.project).select(
+          "customer productName"
+        );
+
+        if (project && project.customer) {
+          const submitted = status === "Submitted";
+
+          await Notification.create({
+            recipientType: "Customer",
+            recipient: project.customer,
+            type: submitted ? "QUOTATION_SUBMITTED" : "QUOTATION_DECLINED",
+            title: submitted ? "New Supplier Quotation" : "Supplier Declined RFQ",
+            message: submitted
+              ? `A supplier has submitted a quotation for "${rfq.title}".`
+              : `A supplier has declined to quote for "${rfq.title}".`,
+            relatedRFQ: rfq._id,
+            relatedProject: project._id,
+          });
+        }
+      } catch (notificationError) {
+        console.error(
+          "Customer quotation notification failed:",
+          notificationError.message
+        );
+      }
+
       const updatedRFQ = await populateRFQ(
         RFQ.findById(rfqId)
       );
@@ -487,6 +721,182 @@ router.patch(
     }
   }
 );
+
+// Award an RFQ to a manufacturer (project owner only)
+router.patch("/customer/:rfqId/award", customerAuth, async (req, res) => {
+  try {
+    const { rfqId } = req.params;
+    const { manufacturerId } = req.body;
+    const customerId = req.customer.customerId;
+
+    if (
+      !mongoose.Types.ObjectId.isValid(rfqId) ||
+      !mongoose.Types.ObjectId.isValid(manufacturerId || "")
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid RFQ or manufacturer ID.",
+      });
+    }
+
+    const rfq = await RFQ.findById(rfqId);
+
+    if (!rfq) {
+      return res.status(404).json({
+        success: false,
+        message: "RFQ not found.",
+      });
+    }
+
+    const project = await Project.findOne({
+      _id: rfq.project,
+      customer: customerId,
+    });
+
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        message: "RFQ not found for this customer.",
+      });
+    }
+
+    if (rfq.status === "Cancelled") {
+      return res.status(400).json({
+        success: false,
+        message: "A cancelled RFQ cannot be awarded.",
+      });
+    }
+
+    if (rfq.selectedManufacturer) {
+      return res.status(409).json({
+        success: false,
+        message: "This RFQ has already been awarded.",
+      });
+    }
+
+    const deadlinePassed =
+      rfq.quotationDeadline &&
+      new Date() > new Date(rfq.quotationDeadline);
+
+    const pendingSuppliers = rfq.quotations.filter(
+      (item) => item.status === "Pending"
+    );
+
+    if (pendingSuppliers.length > 0 && !deadlinePassed) {
+      return res.status(409).json({
+        success: false,
+        message:
+          "This RFQ cannot be awarded while invited suppliers are still pending. Wait until all suppliers respond or the quotation deadline passes.",
+        pendingSuppliers: pendingSuppliers.length,
+      });
+    }
+
+    const submittedQuotations = rfq.quotations.filter(
+      (item) => item.status === "Submitted"
+    );
+
+    if (submittedQuotations.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "This RFQ cannot be awarded without a submitted quotation.",
+      });
+    }
+
+    const quotation = rfq.quotations.find(
+      (item) => item.manufacturer.toString() === manufacturerId
+    );
+
+    if (!quotation || quotation.status !== "Submitted") {
+      return res.status(400).json({
+        success: false,
+        message: "Only a manufacturer with a submitted quotation can be selected.",
+      });
+    }
+
+    const awardTime = new Date();
+
+    const awardConditions = {
+      _id: rfq._id,
+      status: { $ne: "Cancelled" },
+      $or: [
+        { selectedManufacturer: null },
+        { selectedManufacturer: { $exists: false } },
+      ],
+      $and: [
+        {
+          quotations: {
+            $elemMatch: {
+              manufacturer: manufacturerId,
+              status: "Submitted",
+            },
+          },
+        },
+      ],
+    };
+
+    if (pendingSuppliers.length > 0 && !deadlinePassed) {
+      awardConditions.$and.push({
+        quotations: {
+          $not: { $elemMatch: { status: "Pending" } },
+        },
+      });
+    }
+
+    const awardedRFQ = await RFQ.findOneAndUpdate(
+      awardConditions,
+      {
+        $set: {
+          selectedManufacturer: manufacturerId,
+          awardedAt: awardTime,
+          status: "Completed",
+        },
+      },
+      { new: true, runValidators: true }
+    );
+
+    if (!awardedRFQ) {
+      return res.status(409).json({
+        success: false,
+        message:
+          "The RFQ could not be awarded because its status or supplier responses changed. Refresh and try again.",
+      });
+    }
+
+    try {
+      await Notification.create({
+        recipientType: "Manufacturer",
+        recipient: manufacturerId,
+        type: "RFQ_AWARDED",
+        title: "Congratulations! RFQ Awarded",
+        message: `Your quotation for "${awardedRFQ.title}" has been selected. The buyer has awarded this RFQ to your company.`,
+        relatedRFQ: awardedRFQ._id,
+        relatedProject: awardedRFQ.project,
+      });
+    } catch (notificationError) {
+      console.error(
+        "Customer RFQ award notification failed:",
+        notificationError.message
+      );
+    }
+
+    const populatedRFQ = await populateRFQ(
+      RFQ.findById(awardedRFQ._id)
+    );
+
+    return res.json({
+      success: true,
+      message: "Supplier successfully selected for this RFQ.",
+      rfq: populatedRFQ,
+    });
+  } catch (error) {
+    console.error("Customer award RFQ error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Could not award this RFQ.",
+    });
+  }
+});
 
 // Award an RFQ to a manufacturer (administrator only)
 router.patch("/:rfqId/award", adminAuth, async (req, res) => {
@@ -568,20 +978,65 @@ router.patch("/:rfqId/award", adminAuth, async (req, res) => {
       });
     }
 
-    rfq.selectedManufacturer = manufacturerId;
-    rfq.awardedAt = new Date();
-    rfq.status = "Completed";
+    const awardTime = new Date();
 
-        // Notify the selected manufacturer about the RFQ award.
+    const awardConditions = {
+      _id: rfq._id,
+      status: { $ne: "Cancelled" },
+      $or: [
+        { selectedManufacturer: null },
+        { selectedManufacturer: { $exists: false } },
+      ],
+      $and: [
+        {
+          quotations: {
+            $elemMatch: {
+              manufacturer: manufacturerId,
+              status: "Submitted",
+            },
+          },
+        },
+      ],
+    };
+
+    if (pendingSuppliers.length > 0 && !deadlinePassed) {
+      awardConditions.$and.push({
+        quotations: {
+          $not: { $elemMatch: { status: "Pending" } },
+        },
+      });
+    }
+
+    const awardedRFQ = await RFQ.findOneAndUpdate(
+      awardConditions,
+      {
+        $set: {
+          selectedManufacturer: manufacturerId,
+          awardedAt: awardTime,
+          status: "Completed",
+        },
+      },
+      { new: true, runValidators: true }
+    );
+
+    if (!awardedRFQ) {
+      return res.status(409).json({
+        success: false,
+        message:
+          "The RFQ could not be awarded because its status or supplier responses changed. Refresh and try again.",
+      });
+    }
+
+    // Notify the selected manufacturer only after the award is saved.
     try {
       await Notification.create({
         recipientType: "Manufacturer",
         recipient: manufacturerId,
         type: "RFQ_AWARDED",
         title: "Congratulations! RFQ Awarded",
-        message: `Your quotation for "${rfq.title}" has been selected. The buyer has awarded this RFQ to your company.`,
-        relatedRFQ: rfq._id,
-        relatedProject: rfq.project,
+        message: `Your quotation for "${awardedRFQ.title}" has been selected. The buyer has awarded this RFQ to your company.`,
+        relatedRFQ: awardedRFQ._id,
+        relatedProject: awardedRFQ.project,
       });
     } catch (notificationError) {
       console.error(
@@ -590,10 +1045,8 @@ router.patch("/:rfqId/award", adminAuth, async (req, res) => {
       );
     }
 
-    await rfq.save();
-
     const populatedRFQ = await populateRFQ(
-      RFQ.findById(rfq._id)
+      RFQ.findById(awardedRFQ._id)
     );
 
     return res.json({
