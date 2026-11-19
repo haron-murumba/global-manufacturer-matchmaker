@@ -1,4 +1,3 @@
-
 const mongoose = require("mongoose");
 
 const supplierQuotationSchema = new mongoose.Schema(
@@ -37,6 +36,13 @@ const supplierQuotationSchema = new mongoose.Schema(
     submittedAt: {
       type: Date,
     },
+    respondedAt: {
+      type: Date,
+    },
+    respondedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Manufacturer",
+    },
   },
   { timestamps: true }
 );
@@ -70,19 +76,30 @@ const rfqSchema = new mongoose.Schema(
       default: "Draft",
     },
     quotations: [supplierQuotationSchema],
-
-      selectedManufacturer: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Manufacturer",
-        default: null,
-      },
-      awardedAt: {
-        type: Date,
-        default: null,
-      },
+    selectedManufacturer: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Manufacturer",
+      default: null,
+    },
+    awardedAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );
 
-module.exports = mongoose.model("RFQ", rfqSchema);
+// Only one active sourcing round per project.
+// Completed and Cancelled RFQs do not prevent a new round.
+rfqSchema.index(
+  { project: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      status: { $in: ["Draft", "Sent"] },
+    },
+    name: "one_active_rfq_per_project",
+  }
+);
 
+module.exports = mongoose.model("RFQ", rfqSchema);

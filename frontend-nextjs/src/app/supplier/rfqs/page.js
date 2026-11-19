@@ -291,7 +291,8 @@ export default function SupplierRFQPage() {
                 const rfqClosed =
                   rfq.status === "Completed" || rfq.status === "Cancelled";
                 const displayStatus = rfq.isAwarded
-                  ? "Awarded"
+                  ? (rfq.awardOutcome ||
+                    (rfq.isSelectedSupplier ? "Selected" : "Not Selected"))
                   : rfq.status === "Cancelled"
                     ? "Cancelled"
                     : rfq.status === "Completed"
@@ -316,11 +317,15 @@ export default function SupplierRFQPage() {
 
                       <span
                         className={`rounded-full px-3 py-1 text-xs font-medium ${
-                          status === "Submitted"
+                          displayStatus === "Selected"
                             ? "bg-green-950 text-green-300"
-                            : status === "Declined"
-                              ? "bg-red-950 text-red-300"
-                              : "bg-amber-950 text-amber-300"
+                            : displayStatus === "Not Selected"
+                              ? "bg-slate-800 text-slate-300"
+                              : status === "Submitted"
+                                ? "bg-green-950 text-green-300"
+                                : status === "Declined"
+                                  ? "bg-red-950 text-red-300"
+                                  : "bg-amber-950 text-amber-300"
                         }`}
                       >
                         {displayStatus}
@@ -381,10 +386,12 @@ export default function SupplierRFQPage() {
                       </p>
                     )}
 
-                    {rfqClosed && status === "Pending" && (
+                    {rfqClosed && (
                       <p className="mt-4 text-sm text-slate-400">
                         {rfq.isAwarded
-                          ? "This RFQ has been awarded and responses are closed."
+                          ? rfq.isSelectedSupplier
+                            ? "Congratulations! Your quotation was selected. This RFQ is now closed."
+                            : "This RFQ was awarded to another supplier. Your quotation history is preserved."
                           : rfq.status === "Cancelled"
                             ? "This RFQ was cancelled."
                             : "The response period is complete. No further responses are accepted."}

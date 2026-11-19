@@ -32,6 +32,13 @@ const validDate = (value) => {
   return !Number.isNaN(new Date(value).getTime());
 };
 
+const isActiveRFQDuplicate = (error) =>
+  error?.code === 11000 &&
+  (
+    error?.keyPattern?.project ||
+    error?.message?.includes("one_active_rfq_per_project")
+  );
+
 // GET: Find compatible verified manufacturers for an RFQ project
 router.get("/matches/:projectId", adminAuth, async (req, res) => {
   try {
@@ -143,6 +150,20 @@ router.post("/", adminAuth, async (req, res) => {
       });
     }
 
+    const existingActiveRFQ = await RFQ.findOne({
+      project: projectId,
+      status: { $in: ["Draft", "Sent"] },
+    }).select("_id title status");
+
+    if (existingActiveRFQ) {
+      return res.status(409).json({
+        success: false,
+        message:
+          "This project already has an active RFQ. Complete or cancel it before starting another round.",
+        existingRFQId: existingActiveRFQ._id,
+      });
+    }
+
     if (project.specificationStatus !== "Confirmed") {
       return res.status(400).json({
         message:
@@ -232,8 +253,15 @@ router.post("/", adminAuth, async (req, res) => {
       rfq: populatedRFQ,
     });
   } catch (error) {
+    if (isActiveRFQDuplicate(error)) {
+      return res.status(409).json({
+        success: false,
+        message: "This project already has an active RFQ. Complete or cancel it before starting another round.",
+      });
+    }
+
     console.error("Create RFQ error:", error);
-    res.status(500).json({
+    return res.status(500).json({
       message: "Could not create RFQ.",
     });
   }
@@ -303,6 +331,20 @@ router.post("/customer", customerAuth, async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Project not found or you do not have access to it.",
+      });
+    }
+
+    const existingActiveRFQ = await RFQ.findOne({
+      project: project._id,
+      status: { $in: ["Draft", "Sent"] },
+    }).select("_id title status");
+
+    if (existingActiveRFQ) {
+      return res.status(409).json({
+        success: false,
+        message:
+          "This project already has an active RFQ. Complete or cancel it before starting another round.",
+        existingRFQId: existingActiveRFQ._id,
       });
     }
 
@@ -404,6 +446,13 @@ router.post("/customer", customerAuth, async (req, res) => {
       rfq: populatedRFQ,
     });
   } catch (error) {
+    if (isActiveRFQDuplicate(error)) {
+      return res.status(409).json({
+        success: false,
+        message: "This project already has an active RFQ. Complete or cancel it before starting another round.",
+      });
+    }
+
     console.error("Create customer RFQ error:", error);
     return res.status(500).json({
       success: false,
@@ -473,6 +522,7 @@ router.get('/supplier/my-rfqs', manufacturerAuth, async (req, res) => {
     })
       .populate('project')
       .populate('quotations.manufacturer')
+      .populate('selectedManufacturer', 'companyName country city')
       .sort({ createdAt: -1 });
 
     const supplierRFQs = rfqs.map((rfq) => {
@@ -481,6 +531,13 @@ router.get('/supplier/my-rfqs', manufacturerAuth, async (req, res) => {
           item.manufacturer &&
           item.manufacturer._id.toString() === manufacturerId
       );
+
+      const selectedManufacturerId = rfq.selectedManufacturer
+        ? String(rfq.selectedManufacturer._id || rfq.selectedManufacturer)
+        : null;
+      const isAwarded = Boolean(selectedManufacturerId);
+      const isSelectedSupplier =
+        selectedManufacturerId === String(manufacturerId);
 
       return {
         _id: rfq._id,
@@ -492,7 +549,14 @@ router.get('/supplier/my-rfqs', manufacturerAuth, async (req, res) => {
         deliveryDeadline: rfq.deliveryDeadline,
         quotationDeadline: rfq.quotationDeadline,
         status: rfq.status,
-        isAwarded: Boolean(rfq.selectedManufacturer),
+        isAwarded,
+        isSelectedSupplier,
+        awardOutcome: !isAwarded
+          ? "Awaiting Decision"
+          : isSelectedSupplier
+            ? "Selected"
+            : "Not Selected",
+        selectedManufacturer: rfq.selectedManufacturer,
         project: rfq.project,
         quotation,
       };
@@ -552,14 +616,12 @@ router.patch(
     try {
       const { rfqId, manufacturerId } = req.params;
 
-      if (
-          req.manufacturer.manufacturerId !== manufacturerId
-        ) {
-          return res.status(403).json({
-            success: false,
-            message: 'You can only respond to RFQs assigned to your account.',
-          });
-        }
+      if (req.manufacturer.manufacturerId !== manufacturerId) {
+        return res.status(403).json({
+          success: false,
+          message: "You can only respond to RFQs assigned to your account.",
+        });
+      }
 
       const {
         status,
@@ -576,12 +638,14 @@ router.patch(
         !mongoose.Types.ObjectId.isValid(manufacturerId)
       ) {
         return res.status(400).json({
+          success: false,
           message: "Invalid RFQ or manufacturer ID.",
         });
       }
 
       if (!["Submitted", "Declined"].includes(status)) {
         return res.status(400).json({
+          success: false,
           message: "Status must be Submitted or Declined.",
         });
       }
@@ -590,41 +654,53 @@ router.patch(
 
       if (!rfq) {
         return res.status(404).json({
+          success: false,
           message: "RFQ not found.",
         });
       }
 
-      if (["Cancelled", "Completed"].includes(rfq.status)) {
+      if (rfq.status !== "Sent") {
         return res.status(400).json({
+          success: false,
           message: "This RFQ is no longer accepting responses.",
         });
       }
 
+      const now = new Date();
+
       if (
         rfq.quotationDeadline &&
-        new Date() > new Date(rfq.quotationDeadline)
+        now > new Date(rfq.quotationDeadline)
       ) {
         return res.status(400).json({
+          success: false,
           message: "The quotation submission deadline has passed.",
         });
       }
 
       const quotation = rfq.quotations.find(
-        (item) =>
-          item.manufacturer.toString() === manufacturerId
+        (item) => item.manufacturer.toString() === manufacturerId
       );
 
       if (!quotation) {
         return res.status(404).json({
+          success: false,
           message: "Manufacturer is not assigned to this RFQ.",
         });
       }
 
       if (quotation.status !== "Pending") {
-        return res.status(400).json({
+        return res.status(409).json({
+          success: false,
           message: "This manufacturer has already responded.",
         });
       }
+
+      const fieldsToSet = {
+        "quotations.$[quote].status": status,
+        "quotations.$[quote].respondedAt": now,
+        "quotations.$[quote].respondedBy": manufacturerId,
+      };
 
       if (status === "Submitted") {
         const price = Number(unitPrice);
@@ -636,6 +712,7 @@ router.patch(
           price < 0
         ) {
           return res.status(400).json({
+            success: false,
             message: "Enter a valid unit price.",
           });
         }
@@ -647,36 +724,66 @@ router.patch(
         } else {
           finalTotal = Number(totalPrice);
 
-          if (
-            !Number.isFinite(finalTotal) ||
-            finalTotal < 0
-          ) {
+          if (!Number.isFinite(finalTotal) || finalTotal < 0) {
             return res.status(400).json({
+              success: false,
               message: "Enter a valid total price.",
             });
           }
         }
 
-        quotation.unitPrice = price;
-        quotation.totalPrice = finalTotal;
-        quotation.currency = currency || "USD";
-        quotation.leadTime = leadTime;
-        quotation.paymentTerms = paymentTerms;
-        quotation.notes = notes;
-        quotation.submittedAt = new Date();
+        Object.assign(fieldsToSet, {
+          "quotations.$[quote].unitPrice": price,
+          "quotations.$[quote].totalPrice": finalTotal,
+          "quotations.$[quote].currency": currency || "USD",
+          "quotations.$[quote].leadTime": leadTime,
+          "quotations.$[quote].paymentTerms": paymentTerms,
+          "quotations.$[quote].notes": notes,
+          "quotations.$[quote].submittedAt": now,
+        });
       }
 
-      quotation.status = status;
-
-      const allResponded = rfq.quotations.every(
-        (item) => item.status !== "Pending"
+      // Atomically update only this manufacturer's pending invitation.
+      // The RFQ itself deliberately remains Sent until a customer awards it.
+      const updated = await RFQ.findOneAndUpdate(
+        {
+          _id: rfqId,
+          status: "Sent",
+          quotations: {
+            $elemMatch: {
+              manufacturer: manufacturerId,
+              status: "Pending",
+            },
+          },
+          $or: [
+            { quotationDeadline: null },
+            { quotationDeadline: { $gt: now } },
+          ],
+        },
+        {
+          $set: fieldsToSet,
+        },
+        {
+          new: true,
+          runValidators: true,
+          arrayFilters: [
+            {
+              "quote.manufacturer": manufacturerId,
+              "quote.status": "Pending",
+            },
+          ],
+        }
       );
 
-      rfq.status = allResponded ? "Completed" : "Sent";
+      if (!updated) {
+        return res.status(409).json({
+          success: false,
+          message:
+            "Your invitation may already have been answered, or the RFQ deadline has passed. Refresh and check its current status.",
+        });
+      }
 
-      await rfq.save();
-
-      // Notify the customer when a supplier submits or declines a quotation.
+      // Notify the customer only after the response is successfully saved.
       try {
         const project = await Project.findById(rfq.project).select(
           "customer productName"
@@ -688,8 +795,12 @@ router.patch(
           await Notification.create({
             recipientType: "Customer",
             recipient: project.customer,
-            type: submitted ? "QUOTATION_SUBMITTED" : "QUOTATION_DECLINED",
-            title: submitted ? "New Supplier Quotation" : "Supplier Declined RFQ",
+            type: submitted
+              ? "QUOTATION_SUBMITTED"
+              : "QUOTATION_DECLINED",
+            title: submitted
+              ? "New Supplier Quotation"
+              : "Supplier Declined RFQ",
             message: submitted
               ? `A supplier has submitted a quotation for "${rfq.title}".`
               : `A supplier has declined to quote for "${rfq.title}".`,
@@ -708,14 +819,15 @@ router.patch(
         RFQ.findById(rfqId)
       );
 
-      res.json({
+      return res.json({
         success: true,
         message: "Quotation updated successfully.",
         rfq: updatedRFQ,
       });
     } catch (error) {
       console.error("Update quotation error:", error);
-      res.status(500).json({
+      return res.status(500).json({
+        success: false,
         message: "Could not update quotation.",
       });
     }
@@ -774,6 +886,13 @@ router.patch("/customer/:rfqId/award", customerAuth, async (req, res) => {
       });
     }
 
+    if (rfq.status !== "Sent") {
+      return res.status(409).json({
+        success: false,
+        message: "Only active, sent RFQs can be awarded.",
+      });
+    }
+
     const deadlinePassed =
       rfq.quotationDeadline &&
       new Date() > new Date(rfq.quotationDeadline);
@@ -817,7 +936,7 @@ router.patch("/customer/:rfqId/award", customerAuth, async (req, res) => {
 
     const awardConditions = {
       _id: rfq._id,
-      status: { $ne: "Cancelled" },
+      status: "Sent",
       $or: [
         { selectedManufacturer: null },
         { selectedManufacturer: { $exists: false } },
@@ -833,14 +952,6 @@ router.patch("/customer/:rfqId/award", customerAuth, async (req, res) => {
         },
       ],
     };
-
-    if (pendingSuppliers.length > 0 && !deadlinePassed) {
-      awardConditions.$and.push({
-        quotations: {
-          $not: { $elemMatch: { status: "Pending" } },
-        },
-      });
-    }
 
     const awardedRFQ = await RFQ.findOneAndUpdate(
       awardConditions,
@@ -937,6 +1048,13 @@ router.patch("/:rfqId/award", adminAuth, async (req, res) => {
       });
     }
 
+    if (rfq.status !== "Sent") {
+      return res.status(409).json({
+        success: false,
+        message: "Only active, sent RFQs can be awarded.",
+      });
+    }
+
     // Ensure suppliers have a fair opportunity to respond.
     const deadlinePassed =
       rfq.quotationDeadline &&
@@ -982,7 +1100,7 @@ router.patch("/:rfqId/award", adminAuth, async (req, res) => {
 
     const awardConditions = {
       _id: rfq._id,
-      status: { $ne: "Cancelled" },
+      status: "Sent",
       $or: [
         { selectedManufacturer: null },
         { selectedManufacturer: { $exists: false } },
@@ -998,14 +1116,6 @@ router.patch("/:rfqId/award", adminAuth, async (req, res) => {
         },
       ],
     };
-
-    if (pendingSuppliers.length > 0 && !deadlinePassed) {
-      awardConditions.$and.push({
-        quotations: {
-          $not: { $elemMatch: { status: "Pending" } },
-        },
-      });
-    }
 
     const awardedRFQ = await RFQ.findOneAndUpdate(
       awardConditions,
