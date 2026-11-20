@@ -29,7 +29,47 @@ const populateRFQ = (query) =>
 
 const validDate = (value) => {
   if (!value) return true;
-  return !Number.isNaN(new Date(value).getTime());
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return false;
+
+  const today = new Date();
+
+  const deadlineDay = Date.UTC(
+    date.getUTCFullYear(),
+    date.getUTCMonth(),
+    date.getUTCDate()
+  );
+
+  const todayDay = Date.UTC(
+    today.getUTCFullYear(),
+    today.getUTCMonth(),
+    today.getUTCDate()
+  );
+
+  return deadlineDay >= todayDay;
+};
+
+const validDeadlineOrder = (quotationDeadline, deliveryDeadline) => {
+  if (!quotationDeadline || !deliveryDeadline) return true;
+
+  const quotationDate = new Date(quotationDeadline);
+  const deliveryDate = new Date(deliveryDeadline);
+
+  const quotationDay = Date.UTC(
+    quotationDate.getUTCFullYear(),
+    quotationDate.getUTCMonth(),
+    quotationDate.getUTCDate()
+  );
+
+  const deliveryDay = Date.UTC(
+    deliveryDate.getUTCFullYear(),
+    deliveryDate.getUTCMonth(),
+    deliveryDate.getUTCDate()
+  );
+
+  return deliveryDay >= quotationDay;
 };
 
 const isActiveRFQDuplicate = (error) =>
@@ -124,6 +164,12 @@ router.post("/", adminAuth, async (req, res) => {
         message: "One or more deadline dates are invalid.",
       });
     }
+    if (!validDeadlineOrder(quotationDeadline, deliveryDeadline)) {
+      return res.status(400).json({
+        message: "Delivery deadline cannot be earlier than the quotation deadline.",
+      });
+    }
+
 
     if (
       !Array.isArray(manufacturerIds) ||
@@ -276,6 +322,7 @@ router.post("/customer", customerAuth, async (req, res) => {
       projectId,
       title,
       quantity,
+      currency,
       deliveryLocation,
       deliveryDeadline,
       quotationDeadline,
@@ -284,6 +331,14 @@ router.post("/customer", customerAuth, async (req, res) => {
     } = req.body;
 
     const qty = Number(quantity);
+    const rfqCurrency = String(currency || "USD").trim().toUpperCase();
+
+    if (!["USD", "EUR", "GBP", "KES", "CNY"].includes(rfqCurrency)) {
+      return res.status(400).json({
+        success: false,
+        message: "Select a supported RFQ currency.",
+      });
+    }
 
     if (!mongoose.Types.ObjectId.isValid(projectId || "")) {
       return res.status(400).json({
@@ -305,6 +360,13 @@ router.post("/customer", customerAuth, async (req, res) => {
         message: "One or more deadline dates are invalid.",
       });
     }
+    if (!validDeadlineOrder(quotationDeadline, deliveryDeadline)) {
+      return res.status(400).json({
+        success: false,
+        message: "Delivery deadline cannot be earlier than the quotation deadline.",
+      });
+    }
+
 
     if (!Array.isArray(manufacturerIds) || manufacturerIds.length === 0) {
       return res.status(400).json({
@@ -406,6 +468,7 @@ router.post("/customer", customerAuth, async (req, res) => {
       project: project._id,
       title: title.trim(),
       quantity: qty,
+      currency: rfqCurrency,
       material: project.material,
       process: project.process,
       deliveryLocation,
@@ -543,6 +606,7 @@ router.get('/supplier/my-rfqs', manufacturerAuth, async (req, res) => {
         _id: rfq._id,
         title: rfq.title,
         quantity: rfq.quantity,
+        currency: rfq.currency || "USD",
         material: rfq.material,
         process: rfq.process,
         deliveryLocation: rfq.deliveryLocation,
@@ -703,6 +767,24 @@ router.patch(
       };
 
       if (status === "Submitted") {
+        const quotationCurrency = String(currency || "USD")
+          .trim()
+          .toUpperCase();
+
+        if (!["USD", "EUR", "GBP", "KES", "CNY"].includes(quotationCurrency)) {
+          return res.status(400).json({
+            success: false,
+            message: "Select a supported quotation currency.",
+          });
+        }
+
+        if (quotationCurrency !== String(rfq.currency || "USD").toUpperCase()) {
+          return res.status(400).json({
+            success: false,
+            message: `This RFQ requires quotations in ${rfq.currency || "USD"}.`,
+          });
+        }
+
         const price = Number(unitPrice);
 
         if (
@@ -735,7 +817,7 @@ router.patch(
         Object.assign(fieldsToSet, {
           "quotations.$[quote].unitPrice": price,
           "quotations.$[quote].totalPrice": finalTotal,
-          "quotations.$[quote].currency": currency || "USD",
+          "quotations.$[quote].currency": quotationCurrency,
           "quotations.$[quote].leadTime": leadTime,
           "quotations.$[quote].paymentTerms": paymentTerms,
           "quotations.$[quote].notes": notes,

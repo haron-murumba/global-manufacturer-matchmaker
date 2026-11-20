@@ -93,6 +93,15 @@ export default function SupplierLoginPage() {
             />
           </div>
 
+          <div className="text-right -mt-3">
+            <Link
+              href="/supplier/forgot-password"
+              className="text-sm text-blue-400 hover:underline"
+            >
+              Forgot password?
+            </Link>
+          </div>
+
           <button
             type="submit"
             disabled={loading}

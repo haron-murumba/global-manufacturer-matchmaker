@@ -21,6 +21,16 @@ const customerSchema = new mongoose.Schema(
       required: true,
       select: false,
     },
+
+    resetTokenHash: {
+      type: String,
+      select: false,
+    },
+
+    resetTokenExpiresAt: {
+      type: Date,
+      select: false,
+    },
   },
   {
     timestamps: true,

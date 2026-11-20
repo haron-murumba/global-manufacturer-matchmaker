@@ -18,6 +18,7 @@ const emptyForm = {
   projectId: "",
   title: "",
   quantity: "",
+  currency: "USD",
   deliveryLocation: "",
   deliveryDeadline: "",
   quotationDeadline: "",
@@ -217,6 +218,7 @@ export default function CustomerRFQPage() {
           projectId: form.projectId,
           title: form.title.trim(),
           quantity: Number(form.quantity),
+          currency: form.currency,
           deliveryLocation: form.deliveryLocation.trim(),
           deliveryDeadline: form.deliveryDeadline
             ? new Date(form.deliveryDeadline).toISOString()
@@ -432,6 +434,26 @@ export default function CustomerRFQPage() {
                       </label>
 
                       <label className="field">
+                        Quotation currency *
+                        <select
+                          value={form.currency}
+                          onChange={(event) =>
+                            setForm((current) => ({
+                              ...current,
+                              currency: event.target.value,
+                            }))
+                          }
+                          required
+                        >
+                          <option value="USD">USD — US Dollar</option>
+                          <option value="EUR">EUR — Euro</option>
+                          <option value="GBP">GBP — British Pound</option>
+                          <option value="KES">KES — Kenyan Shilling</option>
+                          <option value="CNY">CNY — Chinese Yuan</option>
+                        </select>
+                      </label>
+
+                      <label className="field">
                         Delivery location
                         <input
                           value={form.deliveryLocation}
@@ -449,6 +471,10 @@ export default function CustomerRFQPage() {
                         Delivery deadline
                         <input
                           type="date"
+                          min={
+                            form.quotationDeadline ||
+                            new Date().toLocaleDateString("en-CA")
+                          }
                           value={form.deliveryDeadline}
                           onChange={(event) =>
                             setForm((current) => ({
@@ -463,11 +489,17 @@ export default function CustomerRFQPage() {
                         Quotation deadline
                         <input
                           type="date"
+                          min={new Date().toLocaleDateString("en-CA")}
                           value={form.quotationDeadline}
                           onChange={(event) =>
                             setForm((current) => ({
                               ...current,
                               quotationDeadline: event.target.value,
+                              deliveryDeadline:
+                                current.deliveryDeadline &&
+                                current.deliveryDeadline < event.target.value
+                                  ? ""
+                                  : current.deliveryDeadline,
                             }))
                           }
                         />
@@ -669,11 +701,22 @@ export default function CustomerRFQPage() {
                     !rfq.selectedManufacturer &&
                     rfq.status !== "Cancelled";
 
-                  const rankedQuotes = [...submitted].sort(
-                    (a, b) =>
-                      getQuotationTotal(a, rfq.quantity) -
-                      getQuotationTotal(b, rfq.quantity)
-                  );
+                  const quotationCurrencies = [
+                    ...new Set(
+                      submitted.map((quotation) =>
+                        String(quotation.currency || rfq.currency || "USD").toUpperCase()
+                      )
+                    ),
+                  ];
+                  const hasMixedCurrencies = quotationCurrencies.length > 1;
+
+                  const rankedQuotes = hasMixedCurrencies
+                    ? [...submitted]
+                    : [...submitted].sort(
+                        (a, b) =>
+                          getQuotationTotal(a, rfq.quantity) -
+                          getQuotationTotal(b, rfq.quantity)
+                      );
 
                   return (
                     <article className="rfq-card" key={rfq._id}>
@@ -702,6 +745,10 @@ export default function CustomerRFQPage() {
                         <span>
                           <strong>Process:</strong>{" "}
                           {rfq.process || rfq.project?.process || "Not specified"}
+                        </span>
+                        <span>
+                          <strong>Currency:</strong>{" "}
+                          {rfq.currency || "USD"}
                         </span>
                         <span>
                           <strong>Quotation deadline:</strong>{" "}
@@ -740,9 +787,20 @@ export default function CustomerRFQPage() {
                           <div className="comparison-heading">
                             <h4>Quotation comparison</h4>
                             <span className="muted">
-                              Lowest total price shown first
+                              {hasMixedCurrencies
+                                ? "Quotes shown without ranking"
+                                : "Lowest total price shown first"}
                             </span>
                           </div>
+
+                          {hasMixedCurrencies && (
+                            <p className="muted">
+                              These quotations use different currencies (
+                              {quotationCurrencies.join(", ")}). They are not
+                              ranked by price because their totals are not directly
+                              comparable.
+                            </p>
+                          )}
 
                           <div className="table-scroll">
                             <table>
@@ -773,7 +831,7 @@ export default function CustomerRFQPage() {
                                             .filter(Boolean)
                                             .join(", ")}
                                         </small>
-                                        {index === 0 && (
+                                        {!hasMixedCurrencies && index === 0 && (
                                           <span className="lowest-label">
                                             Lowest total
                                           </span>

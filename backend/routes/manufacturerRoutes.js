@@ -1,7 +1,15 @@
 
 
 const express = require('express');
+const { rateLimit } = require('express-rate-limit');
 const router = express.Router();
+
+const passwordResetLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 const multer = require('multer');
 const path = require('path');
 const cloudinary = require('../config/cloudinary');
@@ -12,6 +20,10 @@ const customerAuth = require('../middleware/customerAuth');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const {
+  createResetToken,
+  sendPasswordResetEmail,
+} = require('../services/passwordReset');
 const {
   analyzeManufacturerMatches,
 } = require('../services/manufacturerMatching');
@@ -530,5 +542,124 @@ router.post(
     }
   }
 );
+
+
+// Request a manufacturer password reset
+router.post('/forgot-password', passwordResetLimiter, async (req, res) => {
+  const genericMessage =
+    'If an eligible account exists for that email, password reset instructions will be sent.';
+
+  try {
+    const contactEmail = String(req.body.email || '').trim().toLowerCase();
+
+    if (!contactEmail) {
+      return res.status(200).json({
+        success: true,
+        message: genericMessage,
+      });
+    }
+
+    const manufacturer = await Manufacturer.findOne({
+      contactEmail,
+      verificationStatus: 'Verified',
+      passwordHash: { $exists: true, $ne: null },
+    });
+
+    if (manufacturer) {
+      const { token, tokenHash } = createResetToken();
+
+      manufacturer.resetTokenHash = tokenHash;
+      manufacturer.resetTokenExpiresAt = new Date(Date.now() + 30 * 60 * 1000);
+
+      await manufacturer.save();
+
+      try {
+        await sendPasswordResetEmail({
+          to: manufacturer.contactEmail,
+          token,
+          accountType: 'supplier',
+        });
+      } catch (emailError) {
+        manufacturer.resetTokenHash = undefined;
+        manufacturer.resetTokenExpiresAt = undefined;
+        await manufacturer.save();
+
+        console.error('Manufacturer password reset email failed:', emailError.message);
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: genericMessage,
+    });
+  } catch (error) {
+    console.error('Manufacturer password reset request failed:', error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Unable to process your request right now. Please try again later.',
+    });
+  }
+});
+
+// Complete a manufacturer password reset
+router.post('/reset-password', passwordResetLimiter, async (req, res) => {
+  try {
+    const { token, password } = req.body;
+
+    if (
+      typeof token !== 'string' ||
+      typeof password !== 'string' ||
+      password.length < 12
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: 'A valid reset token and password of at least 12 characters are required.',
+      });
+    }
+
+    const tokenHash = crypto
+      .createHash('sha256')
+      .update(token)
+      .digest('hex');
+
+    const passwordHash = await bcrypt.hash(password, 12);
+
+    const manufacturer = await Manufacturer.findOneAndUpdate(
+      {
+        resetTokenHash: tokenHash,
+        resetTokenExpiresAt: { $gt: new Date() },
+        verificationStatus: 'Verified',
+      },
+      {
+        $set: { passwordHash },
+        $unset: {
+          resetTokenHash: 1,
+          resetTokenExpiresAt: 1,
+        },
+      },
+      { new: true }
+    );
+
+    if (!manufacturer) {
+      return res.status(400).json({
+        success: false,
+        message: 'This password reset link is invalid, expired, or already used.',
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Password reset successfully. You can now sign in.',
+    });
+  } catch (error) {
+    console.error('Manufacturer password reset failed:', error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Password reset failed. Please try again.',
+    });
+  }
+});
 
 module.exports = router;

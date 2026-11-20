@@ -22,7 +22,10 @@ const supplierQuotationSchema = new mongoose.Schema(
     },
     currency: {
       type: String,
+      enum: ["USD", "EUR", "GBP", "KES", "CNY"],
       default: "USD",
+      uppercase: true,
+      trim: true,
     },
     leadTime: {
       type: String,
@@ -63,6 +66,13 @@ const rfqSchema = new mongoose.Schema(
       type: Number,
       required: true,
       min: 1,
+    },
+    currency: {
+      type: String,
+      enum: ["USD", "EUR", "GBP", "KES", "CNY"],
+      default: "USD",
+      uppercase: true,
+      trim: true,
     },
     material: String,
     process: String,

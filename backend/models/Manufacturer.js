@@ -75,6 +75,16 @@ const manufacturerSchema = new mongoose.Schema(
       select: false,
     },
 
+    resetTokenHash: {
+      type: String,
+      select: false,
+    },
+
+    resetTokenExpiresAt: {
+      type: Date,
+      select: false,
+    },
+
     activationTokenHash: {
       type: String,
       select: false,

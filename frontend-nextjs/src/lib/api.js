@@ -190,6 +190,31 @@ export const manufacturerLogin = (contactEmail, password) =>
     }),
   });
 
+// Password recovery for customers and suppliers
+export const requestPasswordReset = (accountType, email) => {
+  const endpoint =
+    accountType === "supplier"
+      ? "/api/manufacturers/forgot-password"
+      : "/api/customers/forgot-password";
+
+  return apiRequest(endpoint, {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+};
+
+export const resetAccountPassword = (accountType, token, password) => {
+  const endpoint =
+    accountType === "supplier"
+      ? "/api/manufacturers/reset-password"
+      : "/api/customers/reset-password";
+
+  return apiRequest(endpoint, {
+    method: "POST",
+    body: JSON.stringify({ token, password }),
+  });
+};
+
 // Supplier RFQs
 export const getSupplierRFQs = (token) =>
   apiRequest("/api/rfqs/supplier/my-rfqs", {

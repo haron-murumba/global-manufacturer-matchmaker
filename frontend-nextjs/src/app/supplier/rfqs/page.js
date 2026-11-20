@@ -82,7 +82,7 @@ export default function SupplierRFQPage() {
     setForm({
       unitPrice: quotation.unitPrice ?? "",
       totalPrice: quotation.totalPrice ?? "",
-      currency: quotation.currency || "USD",
+      currency: rfq.currency || quotation.currency || "USD",
       leadTime: quotation.leadTime || "",
       paymentTerms: quotation.paymentTerms || "",
       notes: quotation.notes || "",
@@ -471,9 +471,7 @@ export default function SupplierRFQPage() {
                     </label>
                     <select
                       value={form.currency}
-                      onChange={(e) =>
-                        setForm({ ...form, currency: e.target.value })
-                      }
+                      disabled
                       className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 text-white"
                     >
                       <option value="USD">USD</option>

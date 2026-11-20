@@ -88,6 +88,12 @@ export default function CustomerLoginPage() {
             />
           </label>
 
+          <div style={{ textAlign: "right", marginTop: 8 }}>
+            <Link href="/forgot-password" style={{ color: "#73b7ff", fontSize: 13 }}>
+              Forgot password?
+            </Link>
+          </div>
+
           <button type="submit" disabled={loading} style={buttonStyle}>
             {loading ? "Signing in..." : "Sign In"}
           </button>
