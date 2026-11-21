@@ -179,30 +179,36 @@ export default function ManufacturersPage() {
               </label>
             ))}
 
-            <label className="manufacturer-field">
+            <div className="manufacturer-field">
               <span>Product Categories</span>
-              <select
-                name="productCategories"
-                multiple
-                value={form.productCategories.split(",").filter(Boolean)}
-                onChange={(event) =>
-                  setForm((previous) => ({
-                    ...previous,
-                    productCategories: Array.from(
-                      event.target.selectedOptions,
-                      (option) => option.value
-                    ).join(","),
-                  }))
-                }
-              >
-                {productCategoryOptions.map((category) => (
-                  <option key={category} value={category}>
-                    {category}
-                  </option>
-                ))}
-              </select>
               <small>Select all categories the manufacturer genuinely supports.</small>
-            </label>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                {productCategoryOptions.map((category) => (
+                  <label key={category} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={form.productCategories.split(",").filter(Boolean).includes(category)}
+                      onChange={(event) =>
+                        setForm((previous) => {
+                          const selected = previous.productCategories.split(",").filter(Boolean);
+                          const updated = event.target.checked
+                            ? [...selected, category]
+                            : selected.filter((item) => item !== category);
+
+                          return {
+                            ...previous,
+                            productCategories: updated.join(","),
+                          };
+                        })
+                      }
+                      className="h-4 w-4 accent-blue-500"
+                    />
+                    <span>{category}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
 
             <label className="manufacturer-field">
               <span>Small Order Responsiveness</span>
