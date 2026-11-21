@@ -235,18 +235,18 @@ export default function SupplierRFQPage() {
           </div>
         )}
 
-        <section className="mb-8 grid gap-4 sm:grid-cols-3">
-          <div className="rounded-xl border border-slate-800 bg-slate-900 p-5">
+        <section className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="rounded-xl border border-slate-800 bg-slate-900 p-4 sm:p-5">
             <p className="text-sm text-slate-400">Pending responses</p>
             <p className="mt-2 text-3xl font-bold">{pendingCount}</p>
           </div>
 
-          <div className="rounded-xl border border-slate-800 bg-slate-900 p-5">
+          <div className="rounded-xl border border-slate-800 bg-slate-900 p-4 sm:p-5">
             <p className="text-sm text-slate-400">Submitted quotations</p>
             <p className="mt-2 text-3xl font-bold">{submittedCount}</p>
           </div>
 
-          <div className="rounded-xl border border-slate-800 bg-slate-900 p-5">
+          <div className="rounded-xl border border-slate-800 bg-slate-900 p-4 sm:p-5">
             <p className="text-sm text-slate-400">Declined invitations</p>
             <p className="mt-2 text-3xl font-bold">{declinedCount}</p>
           </div>
@@ -290,6 +290,10 @@ export default function SupplierRFQPage() {
                 const status = rfq.quotation?.status || "Pending";
                 const rfqClosed =
                   rfq.status === "Completed" || rfq.status === "Cancelled";
+                const deadlinePassed = Boolean(
+                  rfq.quotationDeadline &&
+                  new Date(rfq.quotationDeadline).getTime() <= Date.now()
+                );
                 const displayStatus = rfq.isAwarded
                   ? (rfq.awardOutcome ||
                     (rfq.isSelectedSupplier ? "Selected" : "Not Selected"))
@@ -302,9 +306,9 @@ export default function SupplierRFQPage() {
                 return (
                   <article
                     key={rfq._id}
-                    className="rounded-lg border border-slate-800 bg-slate-950 p-5"
+                    className="rounded-xl border border-slate-800 bg-slate-950 p-4 sm:p-5"
                   >
-                    <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-start sm:gap-4">
                       <div>
                         <h3 className="text-lg font-semibold">
                           {rfq.title}
@@ -332,7 +336,7 @@ export default function SupplierRFQPage() {
                       </span>
                     </div>
 
-                    <div className="mt-5 grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="mt-5 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
                       <div>
                         <p className="text-slate-500">Quantity</p>
                         <p className="mt-1">{rfq.quantity}</p>
@@ -352,7 +356,9 @@ export default function SupplierRFQPage() {
                         <p className="text-slate-500">Quotation deadline</p>
                         <p className="mt-1">
                           {rfq.quotationDeadline
-                            ? new Date(rfq.quotationDeadline).toLocaleDateString()
+                            ? new Date(rfq.quotationDeadline).toLocaleDateString(undefined, {
+                                timeZone: "UTC",
+                              })
                             : "Not specified"}
                         </p>
                       </div>
@@ -364,7 +370,26 @@ export default function SupplierRFQPage() {
                       </p>
                     )}
 
-                    {status === "Pending" && !rfqClosed && (
+                    {rfq.isAwarded && (
+                      <div className="mt-5 rounded-lg border border-slate-700 bg-slate-900 p-4">
+                        <p className="text-sm font-semibold text-slate-200">
+                          RFQ closed — quotation is read-only
+                        </p>
+                        <p className="mt-2 text-sm leading-6 text-slate-400">
+                          {rfq.isSelectedSupplier
+                            ? "Your quotation was selected. This RFQ is closed and no further changes or responses are accepted."
+                            : "This RFQ was awarded to another supplier. Your submitted quotation is retained as read-only history."}
+                        </p>
+                      </div>
+                    )}
+
+                    {status === "Pending" && deadlinePassed && !rfqClosed && !rfq.isAwarded && (
+                      <p className="mt-5 rounded-lg border border-amber-800/60 bg-amber-950/30 p-4 text-sm leading-6 text-amber-300">
+                        Deadline passed — quotation responses are now closed.
+                      </p>
+                    )}
+
+                    {status === "Pending" && !deadlinePassed && !rfqClosed && !rfq.isAwarded && (
                       <button
                         onClick={() => openQuotation(rfq)}
                         className="mt-5 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold hover:bg-blue-500"
@@ -405,9 +430,9 @@ export default function SupplierRFQPage() {
         </section>
 
         {selectedRFQ && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/80 p-4">
-            <div className="my-auto w-full max-w-2xl rounded-2xl border border-slate-700 bg-slate-900 p-6">
-              <div className="mb-6 flex items-start justify-between gap-4">
+          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/80 p-3 sm:items-center sm:p-4">
+            <div className="my-auto w-full max-w-2xl rounded-2xl border border-slate-700 bg-slate-900 p-4 sm:p-6">
+              <div className="mb-5 flex items-start justify-between gap-3 sm:mb-6 sm:gap-4">
                 <div>
                   <h2 className="text-xl font-bold">Respond to RFQ</h2>
                   <p className="mt-1 text-sm text-slate-400">
@@ -418,7 +443,7 @@ export default function SupplierRFQPage() {
                 <button
                   onClick={() => setSelectedRFQ(null)}
                   disabled={saving}
-                  className="text-slate-400 hover:text-white"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white"
                   aria-label="Close quotation form"
                 >
                   ✕
@@ -429,7 +454,7 @@ export default function SupplierRFQPage() {
                 onSubmit={(event) => handleResponse(event, "Submitted")}
                 className="space-y-4"
               >
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <label className="mb-2 block text-sm text-slate-300">
                       Unit price *
@@ -528,12 +553,12 @@ export default function SupplierRFQPage() {
                   />
                 </div>
 
-                <div className="flex flex-wrap justify-between gap-3 border-t border-slate-800 pt-5">
+                <div className="flex flex-col-reverse gap-3 border-t border-slate-800 pt-5 sm:flex-row sm:justify-between">
                   <button
                     type="button"
                     disabled={saving}
                     onClick={(event) => handleResponse(event, "Declined")}
-                    className="rounded-lg border border-red-800 px-4 py-3 text-sm font-medium text-red-300 hover:bg-red-950 disabled:opacity-50"
+                    className="w-full rounded-lg border border-red-800 px-4 py-3 text-sm font-medium text-red-300 hover:bg-red-950 disabled:opacity-50 sm:w-auto"
                   >
                     Decline RFQ
                   </button>
@@ -541,7 +566,7 @@ export default function SupplierRFQPage() {
                   <button
                     type="submit"
                     disabled={saving}
-                    className="rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold hover:bg-blue-500 disabled:opacity-50"
+                    className="w-full rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold hover:bg-blue-500 disabled:opacity-50 sm:w-auto"
                   >
                     {saving ? "Submitting..." : "Submit Quotation"}
                   </button>

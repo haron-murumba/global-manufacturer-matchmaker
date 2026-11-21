@@ -1042,3 +1042,277 @@ td strong {
   outline: 2px solid #70a8ff;
   outline-offset: 3px;
 }
+
+
+/* DAY 2 — CUSTOMER TO MANUFACTURER PARTNER PATHWAY */
+.partner-invite {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(260px, 0.85fr);
+  gap: 28px;
+  align-items: center;
+  margin: 0 0 22px;
+  padding: 26px;
+  overflow: hidden;
+  background: linear-gradient(120deg, #142944 0%, #101d30 70%);
+  border: 1px solid #2b4565;
+  border-radius: 12px;
+}
+
+.partner-invite-content {
+  min-width: 0;
+}
+
+.partner-invite-kicker {
+  color: #78aaff;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.3px;
+}
+
+.partner-invite-content h2 {
+  margin: 10px 0;
+  color: #f1f6ff;
+  font-size: 21px;
+  line-height: 1.3;
+}
+
+.partner-invite-content > p {
+  max-width: 650px;
+  margin: 0;
+  color: #aabbd1;
+  font-size: 12px;
+  line-height: 1.8;
+}
+
+.partner-invite-steps {
+  display: grid;
+  gap: 13px;
+  margin-top: 22px;
+}
+
+.partner-invite-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.partner-invite-step > span {
+  display: grid;
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid #38577d;
+  border-radius: 7px;
+  color: #8db8ff;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.partner-invite-step strong,
+.partner-invite-step small {
+  display: block;
+}
+
+.partner-invite-step strong {
+  color: #e6eef9;
+  font-size: 11px;
+}
+
+.partner-invite-step small {
+  margin-top: 4px;
+  color: #91a4bd;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.partner-invite-action {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 21px;
+  border: 1px solid #344f70;
+  border-radius: 10px;
+  background: #0d192a;
+}
+
+.partner-invite-icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  margin-bottom: 14px;
+  border-radius: 9px;
+  background: #1d3657;
+  color: #83b4ff;
+  font-size: 21px;
+}
+
+.partner-invite-action > strong {
+  color: #edf4ff;
+  font-size: 12px;
+}
+
+.partner-invite-action > p {
+  margin: 8px 0 17px;
+  color: #9aacc3;
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+.partner-invite-button {
+  display: flex;
+  width: 100%;
+  min-height: 43px;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 13px;
+  border: 1px solid #397ff0;
+  border-radius: 7px;
+  background: #397ff0;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  text-decoration: none;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.partner-invite-button:hover {
+  border-color: #5594ff;
+  background: #5594ff;
+}
+
+.partner-invite-action > small {
+  margin-top: 11px;
+  color: #8195ae;
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+@media (max-width: 900px) {
+  .partner-invite {
+    grid-template-columns: 1fr;
+    gap: 22px;
+  }
+
+  .partner-invite-action {
+    max-width: none;
+  }
+}
+
+@media (max-width: 700px) {
+  .partner-invite {
+    padding: 19px;
+  }
+
+  .partner-invite-content h2 {
+    font-size: 19px;
+  }
+
+  .partner-invite-action {
+    padding: 17px;
+  }
+}
+
+/* DAY 2 — REFINED MOBILE PARTNER INVITATION */
+@media (max-width: 480px) {
+  .partner-invite {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 22px;
+    margin-bottom: 20px;
+    padding: 20px 17px;
+    border-radius: 14px;
+  }
+
+  .partner-invite-content {
+    width: 100%;
+  }
+
+  .partner-invite-kicker {
+    font-size: 10px;
+    letter-spacing: 1.2px;
+  }
+
+  .partner-invite-content h2 {
+    margin: 12px 0;
+    font-size: 22px;
+    line-height: 1.3;
+  }
+
+  .partner-invite-content > p {
+    font-size: 14px;
+    line-height: 1.75;
+  }
+
+  .partner-invite-steps {
+    gap: 19px;
+    margin-top: 24px;
+  }
+
+  .partner-invite-step {
+    gap: 13px;
+  }
+
+  .partner-invite-step > span {
+    flex: 0 0 34px;
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    font-size: 11px;
+  }
+
+  .partner-invite-step > div {
+    min-width: 0;
+  }
+
+  .partner-invite-step strong {
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .partner-invite-step small {
+    margin-top: 5px;
+    font-size: 12px;
+    line-height: 1.65;
+  }
+
+  .partner-invite-action {
+    width: 100%;
+    align-items: stretch;
+    padding: 19px 16px;
+    border-radius: 12px;
+  }
+
+  .partner-invite-icon {
+    width: 42px;
+    height: 42px;
+    margin-bottom: 15px;
+  }
+
+  .partner-invite-action > strong {
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .partner-invite-action > p {
+    margin: 9px 0 19px;
+    font-size: 13px;
+    line-height: 1.7;
+  }
+
+  .partner-invite-button {
+    width: 100%;
+    min-height: 50px;
+    padding: 13px 12px;
+    border-radius: 9px;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .partner-invite-action > small {
+    margin-top: 13px;
+    font-size: 11px;
+    line-height: 1.6;
+  }
+}

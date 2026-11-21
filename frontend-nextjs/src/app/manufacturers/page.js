@@ -95,7 +95,7 @@ export default function ManufacturersPage() {
 
       await registerManufacturer(payload);
 
-      setMessage("Manufacturer registered successfully.");
+      setMessage("Application submitted successfully. Your manufacturer profile is now Under Review. Our team must approve your application before you can activate your supplier account and access the supplier workspace.");
       setForm(initialForm);
       setShowForm(false);
       setLoading(true);
@@ -117,9 +117,9 @@ export default function ManufacturersPage() {
       <div className="welcome-section" style={{ marginTop: "25px" }}>
         <div>
           <p className="eyebrow">SUPPLIER NETWORK</p>
-          <h1>Manufacturers</h1>
+          <h1>Manufacturing Partner Applications</h1>
           <p className="welcome-description">
-            Discover and register manufacturing partners.
+            Explore verified manufacturing partners or submit your company for review to join the GMM supplier network.
           </p>
         </div>
 
@@ -127,9 +127,31 @@ export default function ManufacturersPage() {
           className="primary-button"
           onClick={() => setShowForm(!showForm)}
         >
-          {showForm ? "Cancel" : "+ Register Manufacturer"}
+          {showForm ? "Cancel Application" : "+ Apply as a Manufacturing Partner"}
         </button>
       </div>
+
+      <section
+        className="panel"
+        style={{
+          marginTop: 20,
+          marginBottom: 20,
+          border: "1px solid #344966",
+          background: "#101b2e",
+        }}
+      >
+        <h3 style={{ marginTop: 0 }}>How supplier approval works</h3>
+        <p className="welcome-description">
+          All new manufacturing partner applications are reviewed by the GMM
+          team. Submitting an application does not automatically create an
+          active supplier account.
+        </p>
+        <ol style={{ color: "#aab8ca", lineHeight: 1.9, paddingLeft: 22 }}>
+          <li>Submit your company profile and supporting evidence.</li>
+          <li>Our team reviews your manufacturing information and documents.</li>
+          <li>Approved companies receive instructions to activate supplier access.</li>
+        </ol>
+      </section>
 
       {error && (
         <div className="panel" style={{ marginBottom: 15, color: "#ff8b8b" }}>
@@ -148,9 +170,9 @@ export default function ManufacturersPage() {
 
       {showForm && (
         <form className="panel" onSubmit={handleSubmit} style={{ marginBottom: 25 }}>
-          <h3>Register a Manufacturer</h3>
+          <h3>Apply to Become a GMM Manufacturing Partner</h3>
           <p className="welcome-description" style={{ marginBottom: 20 }}>
-            Enter the supplier details below.
+            Provide accurate company, location and production information. Your application will be reviewed before supplier access is granted.
           </p>
 
           <div className="manufacturer-form-grid">
@@ -268,7 +290,7 @@ export default function ManufacturersPage() {
 
       <section className="panel">
         <h3 style={{ marginTop: 0 }}>
-          Registered Manufacturers ({manufacturers.length})
+          Verified Manufacturing Partners ({manufacturers.length})
         </h3>
 
         {loading ? (
@@ -390,16 +412,16 @@ export default function ManufacturersPage() {
           }
         }
 
-          @media (max-width: 650px) {
-            .manufacturer-form-grid,
-            .manufacturer-list {
-              grid-template-columns: 1fr;
-            }
+        @media (max-width: 650px) {
+          .manufacturer-form-grid,
+          .manufacturer-list {
+            grid-template-columns: 1fr;
           }
-                    .manufacturer-card {
-                      flex-direction: column;
-                    }
-                  }
+
+          .manufacturer-card {
+            flex-direction: column;
+          }
+        }
                 `}</style>
               </main>
             );

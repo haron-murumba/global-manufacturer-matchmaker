@@ -55,11 +55,28 @@ export default function CustomerRegisterPage() {
           ← Back to Home
         </Link>
 
-        <h1 style={{ marginTop: 28 }}>Create Your Account</h1>
+        <h1 style={{ marginTop: 28 }}>Create Your Customer Account</h1>
 
-        <p style={{ color: "#a7b5c9" }}>
-          Join GMM and start finding the right manufacturing partners.
+        <p style={{ color: "#a7b5c9", lineHeight: 1.7 }}>
+          Create a customer account to manage sourcing projects, discover
+          manufacturing partners, request quotations and compare supplier offers.
         </p>
+
+        <div style={{
+          marginTop: 18,
+          padding: 13,
+          borderRadius: 8,
+          background: "#172942",
+          border: "1px solid #304967",
+          color: "#c5d5e9",
+          fontSize: 13,
+          lineHeight: 1.6
+        }}>
+          <strong style={{ color: "#ffffff" }}>Creating a customer account?</strong>
+          <br />
+          This registration is for businesses sourcing products. Manufacturers
+          must submit a separate company application for verification.
+        </div>
 
         {error && (
           <p role="alert" style={{ color: "#ff8585" }}>
@@ -124,11 +141,30 @@ export default function CustomerRegisterPage() {
         </form>
 
         <p style={{ color: "#a7b5c9", marginTop: 24 }}>
-          Already have an account?{" "}
+          Already have a customer account?{" "}
           <Link href="/login" style={{ color: "#73b7ff" }}>
             Sign In
           </Link>
         </p>
+
+        <div style={{
+          marginTop: 20,
+          paddingTop: 18,
+          borderTop: "1px solid #263750",
+          color: "#a7b5c9",
+          fontSize: 13,
+          lineHeight: 1.7
+        }}>
+          Are you a manufacturer?
+          <br />
+          <Link href="/manufacturers" style={{
+            color: "#73b7ff",
+            fontWeight: 700,
+            textDecoration: "none"
+          }}>
+            Apply as a Manufacturing Partner →
+          </Link>
+        </div>
       </section>
     </main>
   );

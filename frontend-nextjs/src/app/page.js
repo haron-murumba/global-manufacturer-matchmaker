@@ -108,7 +108,7 @@ export default function HomePage() {
           <Link href="/login" className={styles.signIn}>
             Sign In
           </Link>
-          <Link href="/register" className={styles.primaryButton}>
+          <Link href="#account-types" className={styles.primaryButton}>
             Get Started
           </Link>
         </div>
@@ -133,8 +133,8 @@ export default function HomePage() {
           </p>
 
           <div className={styles.heroActions}>
-            <Link href="/register" className={styles.primaryButton}>
-              Get Started Free →
+            <Link href="#account-types" className={styles.primaryButton}>
+              Choose Your Account →
             </Link>
             <a href="#how-it-works" className={styles.secondaryButton}>
               Discover How It Works
@@ -152,6 +152,50 @@ export default function HomePage() {
             className={styles.heroImage}
           />
           <div className={styles.imageOverlay} />
+        </div>
+      </section>
+
+      <section className={styles.accountTypesSection} id="account-types">
+        <div className={styles.accountTypesIntro}>
+          <span className={styles.eyebrow}>GET STARTED WITH GMM</span>
+          <h2>How would you like to use GMM?</h2>
+          <p>
+            Choose the account that matches your role. Customers and
+            manufacturers have separate registration and workspaces.
+          </p>
+        </div>
+
+        <div className={styles.accountTypesGrid}>
+          <article className={styles.accountTypeCard}>
+            <span className={styles.accountTypeIcon}>01</span>
+            <h3>I'm a Customer</h3>
+            <p>
+              Find suitable manufacturing partners, create sourcing projects,
+              upload technical documents and manage quotation requests.
+            </p>
+            <Link href="/register" className={styles.accountTypeButton}>
+              Create Customer Account →
+            </Link>
+            <span className={styles.accountTypeNote}>
+              For businesses looking to manufacture products
+            </span>
+          </article>
+
+          <article className={styles.accountTypeCard}>
+            <span className={styles.accountTypeIcon}>02</span>
+            <h3>I'm a Manufacturer</h3>
+            <p>
+              Submit your company profile, manufacturing processes,
+              materials, production capabilities and supporting documents
+              for verification.
+            </p>
+            <Link href="/manufacturers" className={styles.accountTypeButton}>
+              Apply as a Manufacturing Partner →
+            </Link>
+            <span className={styles.accountTypeNote}>
+              Applications are reviewed before supplier access is approved
+            </span>
+          </article>
         </div>
       </section>
 

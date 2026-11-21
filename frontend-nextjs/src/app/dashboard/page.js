@@ -451,6 +451,57 @@ export default function Home() {
             ))}
           </section>
 
+          <section className="partner-invite">
+            <div className="partner-invite-content">
+              <span className="partner-invite-kicker">
+                GMM MANUFACTURING NETWORK
+              </span>
+              <h2>Become a Manufacturing Partner</h2>
+              <p>
+                Does your company manufacture products for other businesses?
+                Apply to join the GMM verified supplier network and connect
+                with businesses seeking manufacturing expertise.
+              </p>
+
+              <div className="partner-invite-steps">
+                <div className="partner-invite-step">
+                  <span>01</span>
+                  <div>
+                    <strong>Submit your company profile</strong>
+                    <small>Share your processes, materials and capabilities.</small>
+                  </div>
+                </div>
+                <div className="partner-invite-step">
+                  <span>02</span>
+                  <div>
+                    <strong>Complete verification</strong>
+                    <small>GMM reviews your application and supporting evidence.</small>
+                  </div>
+                </div>
+                <div className="partner-invite-step">
+                  <span>03</span>
+                  <div>
+                    <strong>Activate supplier access</strong>
+                    <small>Approved manufacturers receive account activation instructions.</small>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="partner-invite-action">
+              <div className="partner-invite-icon">◈</div>
+              <strong>A separate manufacturer account</strong>
+              <p>
+                Your customer workspace remains unchanged. Supplier access
+                requires a separate application and approval.
+              </p>
+              <Link href="/manufacturers" className="partner-invite-button">
+                Apply as a Manufacturing Partner →
+              </Link>
+              <small>Applications are reviewed before supplier access is granted.</small>
+            </div>
+          </section>
+
           <section className="dashboard-grid">
             <article className="panel projects-panel">
               <div className="panel-heading">

@@ -60,11 +60,11 @@ export default function ResetPasswordForm() {
 
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-950 px-4 py-12 text-white">
-      <section className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-8 shadow-xl">
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#07111f] px-4 py-8 text-white sm:py-12">
+      <section className="relative w-full max-w-md rounded-3xl border border-slate-700/70 bg-slate-900/95 p-6 shadow-[0_24px_80px_rgba(0,0,0,0.4)] sm:p-9">
         <h1 className="text-2xl font-bold">Reset your password</h1>
 
-        <p className="mt-2 text-sm text-slate-400">
+        <p className="mt-3 text-sm leading-7 text-slate-400">
           Choose a new password for your {isSupplier ? "supplier" : "customer"} account.
           Minimum {isSupplier ? 12 : 8} characters.
         </p>
@@ -88,7 +88,7 @@ export default function ResetPasswordForm() {
 
         <form onSubmit={handleSubmit} className="mt-7 space-y-5">
           <div>
-            <label className="mb-2 block text-sm text-slate-300">New password</label>
+            <label className="mb-2 block text-sm font-medium text-slate-200">New password</label>
             <input
               type="password"
               required
@@ -96,13 +96,13 @@ export default function ResetPasswordForm() {
               autoComplete="new-password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              className="w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
+              className="min-h-12 w-full rounded-xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-white outline-none transition placeholder:text-slate-600 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
               placeholder="Enter new password"
             />
           </div>
 
           <div>
-            <label className="mb-2 block text-sm text-slate-300">Confirm new password</label>
+            <label className="mb-2 block text-sm font-medium text-slate-200">Confirm new password</label>
             <input
               type="password"
               required
@@ -110,7 +110,7 @@ export default function ResetPasswordForm() {
               autoComplete="new-password"
               value={confirmPassword}
               onChange={(event) => setConfirmPassword(event.target.value)}
-              className="w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
+              className="min-h-12 w-full rounded-xl border border-slate-700 bg-slate-950/80 px-4 py-3 text-white outline-none transition placeholder:text-slate-600 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
               placeholder="Confirm new password"
             />
           </div>
@@ -118,7 +118,7 @@ export default function ResetPasswordForm() {
           <button
             type="submit"
             disabled={loading || !!message}
-            className="w-full rounded-lg bg-blue-600 px-4 py-3 font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+            className="min-h-12 w-full rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white shadow-lg shadow-blue-950/30 transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loading ? "Updating..." : "Reset password"}
           </button>
